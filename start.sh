@@ -179,18 +179,21 @@ case $mode in
         echo "=========================================="
         echo ""
 
-        # 如果填了域名，配置 SSL
+        # 如果填了域名，提示 HTTPS 配置（不自动启用，避免没证书时 Nginx 崩溃）
         if [ -n "$domain" ]; then
-            if [ -f nginx/conf.d/ssl.conf.example ] && [ ! -f nginx/conf.d/ssl.conf ]; then
-                cp nginx/conf.d/ssl.conf.example nginx/conf.d/ssl.conf
-                sed -i "s/your-domain.com/$domain/g" nginx/conf.d/ssl.conf
-                echo "✅ 已配置域名: $domain"
-            fi
+            echo "✅ 域名已记录: $domain"
             echo ""
-            echo "⚠️  如需 HTTPS，请先获取 SSL 证书："
-            echo "   sudo certbot certonly --standalone -d $domain"
-            echo "   sudo cp /etc/letsencrypt/live/$domain/fullchain.pem nginx/ssl/"
-            echo "   sudo cp /etc/letsencrypt/live/$domain/privkey.pem nginx/ssl/"
+            echo "💡 如需启用 HTTPS，请在部署完成后手动配置："
+            echo "   1. 获取 SSL 证书："
+            echo "      sudo certbot certonly --standalone -d $domain"
+            echo "   2. 复制证书到项目目录："
+            echo "      sudo cp /etc/letsencrypt/live/$domain/fullchain.pem nginx/ssl/"
+            echo "      sudo cp /etc/letsencrypt/live/$domain/privkey.pem nginx/ssl/"
+            echo "   3. 启用 SSL 配置："
+            echo "      cp nginx/conf.d/ssl.conf.example nginx/conf.d/ssl.conf"
+            echo "      sed -i 's/your-domain.com/$domain/g' nginx/conf.d/ssl.conf"
+            echo "   4. 重启 Nginx："
+            echo "      docker compose restart nginx"
             echo ""
         fi
 
