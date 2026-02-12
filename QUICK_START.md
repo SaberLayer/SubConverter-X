@@ -18,70 +18,40 @@ Docker 部署自动包含 Nginx，无需手动配置。
 
 ## 🚀 快速开始
 
-### 方案一：使用自定义端口（推荐新手）
-
-如果你的服务器 80/443 端口被占用，或者没有域名：
+### 一键部署（推荐）
 
 ```bash
-# 1. 复制环境变量配置
-cp .env.example .env
+# 克隆项目
+git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
+cd SubConverter-X
 
-# 2. 编辑 .env 文件
-nano .env
-
-# 修改以下内容：
-# EXTERNAL_HTTP_PORT=8080    # 改为你想要的端口，如 8080
-# EXTERNAL_HTTPS_PORT=8443   # 改为你想要的端口，如 8443
-
-# 3. 启动服务
-docker compose up -d
-
-# 4. 访问
-# 浏览器打开: http://你的服务器IP:8080
+# 运行管理面板
+chmod +x start.sh
+./start.sh
 ```
 
-### 方案二：使用域名 + HTTPS（推荐生产环境）
+首次运行会自动注册全局命令 `subx`，之后在任意目录输入 `subx` 即可打开管理面板。
 
-如果你有域名并想使用 HTTPS：
+管理面板功能：
 
-```bash
-# 1. 确保域名已解析到服务器 IP
+| 选项 | 说明 |
+|------|------|
+| 1) 部署 / 重新配置 | 选择 HTTP 或 HTTPS，配置端口、域名、证书，自动检测端口冲突 |
+| 2) 更新服务 | 自动拉取最新代码并重建，保留用户配置 |
+| 3) 查看状态 | 容器运行状态、访问地址、CPU/内存占用 |
+| 4) 重启服务 | 重启所有容器，未运行时自动启动 |
+| 5) 停止服务 | 停止所有容器 |
+| 6) 查看日志 | 可选全部 / 后端 / Nginx 日志 |
+| 7) 卸载 | 停止容器、删除命令、可选删除项目文件 |
 
-# 2. 编辑 .env 文件
-cp .env.example .env
-nano .env
+部署流程（选项 1）：
+1. 选择协议（HTTP / HTTPS）
+2. 设置端口（自动检测冲突）
+3. 输入域名（HTTP 可选，HTTPS 必填）
+4. 配置证书（HTTPS 模式：自动申请 Let's Encrypt 或手动指定路径）
+5. 确认启动
 
-# 设置：
-# EXTERNAL_HTTP_PORT=80
-# EXTERNAL_HTTPS_PORT=443
-
-# 3. 配置 SSL
-# 复制 SSL 配置模板
-cp nginx/conf.d/ssl.conf.example nginx/conf.d/ssl.conf
-
-# 编辑 ssl.conf，将 your-domain.com 替换为你的域名
-nano nginx/conf.d/ssl.conf
-
-# 4. 获取 SSL 证书（使用 Let's Encrypt）
-# 临时停止服务
-docker compose down
-
-# 安装 certbot
-apt-get update && apt-get install -y certbot
-
-# 获取证书
-certbot certonly --standalone -d 你的域名.com --email 你的邮箱@example.com
-
-# 复制证书到项目目录
-cp /etc/letsencrypt/live/你的域名.com/fullchain.pem nginx/ssl/
-cp /etc/letsencrypt/live/你的域名.com/privkey.pem nginx/ssl/
-
-# 5. 启动服务
-docker compose up -d
-
-# 6. 访问
-# 浏览器打开: https://你的域名.com
-```
+全程无需手动编辑任何文件，操作完成后按回车返回主菜单。
 
 ---
 
@@ -105,43 +75,23 @@ docker compose up -d
 
 ### Q1: 端口被占用怎么办？
 
-**A:** 修改 `.env` 文件中的 `EXTERNAL_HTTP_PORT` 和 `EXTERNAL_HTTPS_PORT` 为其他端口。
-
-```bash
-# 例如改为 8080 和 8443
-EXTERNAL_HTTP_PORT=8080
-EXTERNAL_HTTPS_PORT=8443
-
-# 重启服务
-docker compose restart
-```
+**A:** 运行 `subx` → 选 `1` → 输入端口时会自动检测冲突，换个空闲端口即可。
 
 ### Q2: 如何查看服务状态？
 
-```bash
-# 查看容器状态
-docker compose ps
+**A:** 运行 `subx` → 选 `3`，显示容器状态、访问地址、CPU/内存占用。
 
-# 查看日志
-docker compose logs -f
+### Q3: 如何查看日志？
 
-# 查看 Nginx 日志
-docker compose logs -f nginx
+**A:** 运行 `subx` → 选 `6`，可选查看全部 / 后端 / Nginx 日志。
 
-# 查看后端日志
-docker compose logs -f backend
-```
+### Q4: 如何更新服务？
 
-### Q3: 如何更新服务？
+**A:** 运行 `subx` → 选 `2`，自动对比版本、显示更新内容、拉取代码并重建，用户配置不会丢失。
 
-```bash
-# 拉取最新代码
-git pull
+### Q5: 如何卸载？
 
-# 重新构建并启动
-docker compose down
-docker compose up -d --build
-```
+**A:** 运行 `subx` → 选 `7`，输入 `yes` 确认，可选是否删除项目文件。
 
 ### Q4: SSL 证书如何续期？
 

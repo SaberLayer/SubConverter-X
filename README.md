@@ -20,14 +20,24 @@
 git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
 cd SubConverter-X
 
-# 运行启动脚本
+# 运行管理面板
+chmod +x start.sh
 ./start.sh
 ```
 
-脚本会引导你选择部署模式：
-1. 快速启动（使用端口 8080）
-2. 使用域名 + HTTPS
-3. 自定义配置
+首次运行会自动注册全局命令 `subx`，之后在任意目录输入 `subx` 即可打开管理面板。
+
+管理面板功能：
+
+| 选项 | 说明 |
+|------|------|
+| 1) 部署 / 重新配置 | 选择 HTTP 或 HTTPS，配置端口、域名、证书 |
+| 2) 更新服务 | 自动拉取最新代码并重建，保留用户配置 |
+| 3) 查看状态 | 容器运行状态、访问地址、资源占用 |
+| 4) 重启服务 | 重启所有容器 |
+| 5) 停止服务 | 停止所有容器 |
+| 6) 查看日志 | 可选全部 / 后端 / Nginx 日志 |
+| 7) 卸载 | 停止容器、删除命令、可选删除项目文件 |
 
 ### 方式二：Docker 部署
 
@@ -393,33 +403,15 @@ docker compose restart
 
 ### 端口被占用怎么办？
 
-修改 `.env` 文件中的端口配置：
-
-```bash
-EXTERNAL_HTTP_PORT=8080    # 改为其他端口
-EXTERNAL_HTTPS_PORT=8443   # 改为其他端口
-```
+运行 `subx` → 选 `1`（部署/重新配置），输入端口时会自动检测冲突。
 
 ### 如何查看日志？
 
-```bash
-# 查看所有服务日志
-docker compose logs -f
-
-# 只查看后端日志
-docker compose logs -f backend
-
-# 只查看 Nginx 日志
-docker compose logs -f nginx
-```
+运行 `subx` → 选 `6`（查看日志），可选全部 / 后端 / Nginx。
 
 ### 如何更新服务？
 
-```bash
-git pull
-docker compose down
-docker compose up -d --build
-```
+运行 `subx` → 选 `2`（更新服务），自动拉取最新代码并重建，用户配置不会丢失。
 
 ### SSL 证书如何续期？
 

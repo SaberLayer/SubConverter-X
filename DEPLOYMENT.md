@@ -546,7 +546,10 @@ docker compose restart
 # 停止服务
 docker compose down
 
-# 更新服务
+# 更新服务（推荐使用管理面板）
+subx  # 选择选项 2
+
+# 或手动更新
 cd /opt/SubConverter-X
 git pull
 docker compose down
@@ -784,7 +787,16 @@ curl -I "订阅URL"
 
 ## 更新部署
 
-### Docker 部署更新
+### 使用管理面板更新（推荐）
+
+```bash
+subx
+# 选择选项 2（更新服务）
+```
+
+面板会自动对比版本、显示更新内容、备份用户配置（`.env`、SSL 证书），拉取最新代码后恢复配置并重建服务。
+
+### Docker 手动更新
 
 ```bash
 cd /opt/SubConverter-X
