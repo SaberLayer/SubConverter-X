@@ -12,6 +12,5 @@ WORKDIR /app
 COPY --from=builder /app/packages/backend/dist ./dist
 COPY --from=builder /app/packages/frontend/dist ./public
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/backend/node_modules ./packages/backend/node_modules
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
