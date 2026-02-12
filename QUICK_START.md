@@ -34,7 +34,7 @@ nano .env
 # EXTERNAL_HTTPS_PORT=8443   # 改为你想要的端口，如 8443
 
 # 3. 启动服务
-docker-compose up -d
+docker compose up -d
 
 # 4. 访问
 # 浏览器打开: http://你的服务器IP:8080
@@ -64,7 +64,7 @@ nano nginx/conf.d/ssl.conf
 
 # 4. 获取 SSL 证书（使用 Let's Encrypt）
 # 临时停止服务
-docker-compose down
+docker compose down
 
 # 安装 certbot
 apt-get update && apt-get install -y certbot
@@ -77,7 +77,7 @@ cp /etc/letsencrypt/live/你的域名.com/fullchain.pem nginx/ssl/
 cp /etc/letsencrypt/live/你的域名.com/privkey.pem nginx/ssl/
 
 # 5. 启动服务
-docker-compose up -d
+docker compose up -d
 
 # 6. 访问
 # 浏览器打开: https://你的域名.com
@@ -113,23 +113,23 @@ EXTERNAL_HTTP_PORT=8080
 EXTERNAL_HTTPS_PORT=8443
 
 # 重启服务
-docker-compose restart
+docker compose restart
 ```
 
 ### Q2: 如何查看服务状态？
 
 ```bash
 # 查看容器状态
-docker-compose ps
+docker compose ps
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 查看 Nginx 日志
-docker-compose logs -f nginx
+docker compose logs -f nginx
 
 # 查看后端日志
-docker-compose logs -f backend
+docker compose logs -f backend
 ```
 
 ### Q3: 如何更新服务？
@@ -139,8 +139,8 @@ docker-compose logs -f backend
 git pull
 
 # 重新构建并启动
-docker-compose down
-docker-compose up -d --build
+docker compose down
+docker compose up -d --build
 ```
 
 ### Q4: SSL 证书如何续期？
@@ -156,7 +156,7 @@ cp /etc/letsencrypt/live/你的域名.com/fullchain.pem nginx/ssl/
 cp /etc/letsencrypt/live/你的域名.com/privkey.pem nginx/ssl/
 
 # 重启 Nginx
-docker-compose restart nginx
+docker compose restart nginx
 ```
 
 建议设置自动续期：
@@ -166,7 +166,7 @@ docker-compose restart nginx
 crontab -e
 
 # 添加以下行（每月 1 号凌晨 3 点自动续期）
-0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker-compose -f /path/to/SubConverter-X/docker-compose.yml restart nginx
+0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker compose -f /path/to/SubConverter-X/docker compose.yml restart nginx
 ```
 
 ### Q5: 国旗显示错误怎么办？
@@ -190,7 +190,7 @@ crontab -e
 
 ```
 SubConverter-X/
-├── docker-compose.yml          # Docker 编排配置（包含 Nginx）
+├── docker compose.yml          # Docker 编排配置（包含 Nginx）
 ├── Dockerfile                  # 后端构建配置
 ├── .env.example               # 环境变量模板
 ├── nginx/                     # Nginx 配置

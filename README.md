@@ -39,7 +39,7 @@ cp .env.example .env
 nano .env
 
 # 启动服务
-docker-compose up -d
+docker compose up -d
 ```
 
 默认访问地址：`http://localhost:8080`
@@ -302,7 +302,7 @@ SubConverter-X/
 │   │   └── routes/               # API 路由
 │   └── frontend/src/             # React 前端
 ├── Dockerfile
-└── docker-compose.yml
+└── docker compose.yml
 ```
 
 ## 技术栈
@@ -353,7 +353,7 @@ cp /etc/letsencrypt/live/your-domain.com/privkey.pem nginx/ssl/
 
 4. 重启服务：
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 详细部署文档请查看：
@@ -404,21 +404,21 @@ EXTERNAL_HTTPS_PORT=8443   # 改为其他端口
 
 ```bash
 # 查看所有服务日志
-docker-compose logs -f
+docker compose logs -f
 
 # 只查看后端日志
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # 只查看 Nginx 日志
-docker-compose logs -f nginx
+docker compose logs -f nginx
 ```
 
 ### 如何更新服务？
 
 ```bash
 git pull
-docker-compose down
-docker-compose up -d --build
+docker compose down
+docker compose up -d --build
 ```
 
 ### SSL 证书如何续期？
@@ -431,7 +431,7 @@ certbot renew
 cp /etc/letsencrypt/live/your-domain.com/*.pem nginx/ssl/
 
 # 重启 Nginx
-docker-compose restart nginx
+docker compose restart nginx
 ```
 
 建议设置自动续期（crontab）。

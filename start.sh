@@ -22,7 +22,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # 检查 Docker Compose
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo "❌ 错误: 未安装 Docker Compose"
     echo "❌ Error: Docker Compose is not installed"
     exit 1
@@ -62,7 +62,7 @@ case $mode in
 
         echo "✅ 配置完成，启动服务..."
         echo "✅ Configuration complete, starting services..."
-        docker-compose up -d
+        docker compose up -d
 
         echo ""
         echo "=========================================="
@@ -114,7 +114,7 @@ case $mode in
         read -p "是否已配置 SSL 证书？(y/n) / SSL certificate configured? (y/n): " ssl_ready
 
         if [ "$ssl_ready" = "y" ] || [ "$ssl_ready" = "Y" ]; then
-            docker-compose up -d
+            docker compose up -d
             echo ""
             echo "=========================================="
             echo "✅ 部署成功！/ Deployment successful!"
@@ -127,7 +127,7 @@ case $mode in
             echo ""
             echo "请先配置 SSL 证书，然后运行："
             echo "Please configure SSL certificate first, then run:"
-            echo "docker-compose up -d"
+            echo "docker compose up -d"
         fi
         ;;
 
@@ -137,7 +137,7 @@ case $mode in
         echo "📝 Please manually edit .env file for configuration"
         echo ""
         read -p "配置完成后按回车启动 / Press Enter to start after configuration: "
-        docker-compose up -d
+        docker compose up -d
 
         echo ""
         echo "=========================================="
@@ -153,13 +153,13 @@ esac
 
 echo ""
 echo "📊 查看日志 / View logs:"
-echo "docker-compose logs -f"
+echo "docker compose logs -f"
 echo ""
 echo "🔄 重启服务 / Restart services:"
-echo "docker-compose restart"
+echo "docker compose restart"
 echo ""
 echo "🛑 停止服务 / Stop services:"
-echo "docker-compose down"
+echo "docker compose down"
 echo ""
 echo "📖 详细文档 / Documentation:"
 echo "- QUICK_START.md (快速开始)"

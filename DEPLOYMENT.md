@@ -716,7 +716,7 @@ sudo nginx -t
 free -h
 
 # Docker 部署：限制容器内存
-# 编辑 docker-compose.yml，添加：
+# 编辑 docker compose.yml，添加：
 # services:
 #   app:
 #     deploy:
