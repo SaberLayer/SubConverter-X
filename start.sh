@@ -151,77 +151,197 @@ case $mode in
         echo "   Press Enter to use the [default] value"
         echo ""
 
-        # HTTP 端口
-        read -p "HTTP 端口 / HTTP port [8080]: " http_port
-        http_port=${http_port:-8080}
-
-        # HTTPS 端口
-        read -p "HTTPS 端口 / HTTPS port [8443]: " https_port
-        https_port=${https_port:-8443}
-
-        # 域名
-        read -p "域名（可选，直接回车跳过）/ Domain (optional, Enter to skip): " domain
-
-        # 写入 .env
-        sed -i "s/EXTERNAL_HTTP_PORT=.*/EXTERNAL_HTTP_PORT=$http_port/" .env
-        sed -i "s/EXTERNAL_HTTPS_PORT=.*/EXTERNAL_HTTPS_PORT=$https_port/" .env
-
-        # 显示配置摘要
+        # 先选协议
+        echo "选择协议 / Select protocol:"
+        echo "1) HTTP（无需证书）/ HTTP (no certificate needed)"
+        echo "2) HTTPS（需要 SSL 证书）/ HTTPS (SSL certificate required)"
         echo ""
-        echo "=========================================="
-        echo "  📋 配置摘要 / Configuration Summary"
-        echo "=========================================="
-        echo "  HTTP  端口: $http_port"
-        echo "  HTTPS 端口: $https_port"
-        if [ -n "$domain" ]; then
-            echo "  域名: $domain"
-        fi
-        echo "=========================================="
+        read -p "请选择 (1-2) [1]: " protocol_mode
+        protocol_mode=${protocol_mode:-1}
         echo ""
 
-        # 如果填了域名，提示 HTTPS 配置（不自动启用，避免没证书时 Nginx 崩溃）
-        if [ -n "$domain" ]; then
-            echo "✅ 域名已记录: $domain"
+        if [ "$protocol_mode" = "1" ]; then
+            # ===== HTTP 模式 =====
+            read -p "HTTP 端口 / HTTP port [8080]: " http_port
+            http_port=${http_port:-8080}
+
+            read -p "域名（可选，直接回车跳过）/ Domain (optional, Enter to skip): " domain
+
+            # 写入 .env
+            sed -i "s/EXTERNAL_HTTP_PORT=.*/EXTERNAL_HTTP_PORT=$http_port/" .env
+
+            # 确保没有残留的 ssl.conf
+            rm -f nginx/conf.d/ssl.conf
+
+            # 配置摘要
             echo ""
-            echo "💡 如需启用 HTTPS，请在部署完成后手动配置："
-            echo "   1. 获取 SSL 证书："
-            echo "      sudo certbot certonly --standalone -d $domain"
-            echo "   2. 复制证书到项目目录："
-            echo "      sudo cp /etc/letsencrypt/live/$domain/fullchain.pem nginx/ssl/"
-            echo "      sudo cp /etc/letsencrypt/live/$domain/privkey.pem nginx/ssl/"
-            echo "   3. 启用 SSL 配置："
-            echo "      cp nginx/conf.d/ssl.conf.example nginx/conf.d/ssl.conf"
-            echo "      sed -i 's/your-domain.com/$domain/g' nginx/conf.d/ssl.conf"
-            echo "   4. 重启 Nginx："
-            echo "      docker compose restart nginx"
+            echo "=========================================="
+            echo "  📋 配置摘要 / Configuration Summary"
+            echo "=========================================="
+            echo "  协议: HTTP"
+            echo "  端口: $http_port"
+            if [ -n "$domain" ]; then
+                echo "  域名: $domain"
+            fi
+            echo "=========================================="
             echo ""
-        fi
 
-        read -p "确认启动？(Y/n) / Confirm to start? (Y/n): " confirm
-        if [ "$confirm" = "n" ] || [ "$confirm" = "N" ]; then
-            echo "已取消。配置已保存到 .env，稍后可运行 docker compose up -d 启动"
-            exit 0
-        fi
+            read -p "确认启动？(Y/n) / Confirm to start? (Y/n): " confirm
+            if [ "$confirm" = "n" ] || [ "$confirm" = "N" ]; then
+                echo "已取消。配置已保存到 .env，稍后可运行 docker compose up -d 启动"
+                exit 0
+            fi
 
-        echo ""
-        echo "🚀 启动服务..."
-        echo "🚀 Starting services..."
-        docker compose up -d
+            echo ""
+            echo "🚀 启动服务..."
+            docker compose up -d
 
-        echo ""
-        echo "=========================================="
-        echo "✅ 部署成功！/ Deployment successful!"
-        echo "=========================================="
-        echo ""
-        echo "访问地址 / Access URL:"
-        if [ -n "$domain" ]; then
-            echo "http://$domain:$http_port"
+            echo ""
+            echo "=========================================="
+            echo "✅ 部署成功！/ Deployment successful!"
+            echo "=========================================="
+            echo ""
+            echo "访问地址 / Access URL:"
+            if [ -n "$domain" ]; then
+                echo "http://$domain:$http_port"
+            else
+                echo "http://localhost:$http_port"
+                echo "或 / or"
+                echo "http://$(hostname -I | awk '{print $1}'):$http_port"
+            fi
+            echo ""
+
         else
-            echo "http://localhost:$http_port"
-            echo "或 / or"
-            echo "http://$(hostname -I | awk '{print $1}'):$http_port"
+            # ===== HTTPS 模式 =====
+            read -p "域名（必填）/ Domain (required): " domain
+            if [ -z "$domain" ]; then
+                echo "❌ HTTPS 模式必须填写域名 / Domain is required for HTTPS"
+                exit 1
+            fi
+
+            read -p "HTTPS 端口 / HTTPS port [8443]: " https_port
+            https_port=${https_port:-8443}
+
+            read -p "HTTP 端口（用于跳转 HTTPS）/ HTTP port (redirect to HTTPS) [8080]: " http_port
+            http_port=${http_port:-8080}
+
+            # 写入 .env
+            sed -i "s/EXTERNAL_HTTP_PORT=.*/EXTERNAL_HTTP_PORT=$http_port/" .env
+            sed -i "s/EXTERNAL_HTTPS_PORT=.*/EXTERNAL_HTTPS_PORT=$https_port/" .env
+
+            # 配置证书
+            echo ""
+            echo "请选择证书来源 / Select certificate source:"
+            echo "1) 自动申请（Let's Encrypt）/ Auto obtain (Let's Encrypt)"
+            echo "2) 已有证书，手动指定路径 / I have certificates, specify path"
+            echo ""
+            read -p "请选择 (1-2): " cert_mode
+
+            cert_ok=false
+
+            case $cert_mode in
+                1)
+                    echo ""
+                    if ! command -v certbot &> /dev/null; then
+                        echo "📦 安装 certbot..."
+                        apt-get update -qq && apt-get install -y -qq certbot > /dev/null 2>&1
+                    fi
+
+                    echo "🔐 申请 SSL 证书..."
+                    echo "   域名: $domain"
+                    echo ""
+
+                    if certbot certonly --standalone -d "$domain" --non-interactive --agree-tos --register-unsafely-without-email 2>/dev/null || \
+                       certbot certonly --standalone -d "$domain"; then
+                        mkdir -p nginx/ssl
+                        cp /etc/letsencrypt/live/$domain/fullchain.pem nginx/ssl/
+                        cp /etc/letsencrypt/live/$domain/privkey.pem nginx/ssl/
+                        echo "✅ 证书申请成功 / Certificate obtained"
+                        cert_ok=true
+                    else
+                        echo ""
+                        echo "❌ 证书申请失败，可能是 80 端口被占用"
+                        echo "❌ Certificate failed, port 80 may be in use"
+                        echo ""
+                        echo "💡 提示：如果 80 端口被占用，可以尝试 DNS 验证："
+                        echo "   certbot certonly --manual --preferred-challenges dns -d $domain"
+                        echo "   申请成功后将证书复制到 nginx/ssl/ 目录，然后重新运行此脚本"
+                    fi
+                    ;;
+                2)
+                    echo ""
+                    read -p "证书文件路径 (fullchain.pem): " cert_path
+                    read -p "私钥文件路径 (privkey.pem): " key_path
+
+                    if [ ! -f "$cert_path" ]; then
+                        echo "❌ 证书文件不存在: $cert_path"
+                    elif [ ! -f "$key_path" ]; then
+                        echo "❌ 私钥文件不存在: $key_path"
+                    else
+                        mkdir -p nginx/ssl
+                        cp "$cert_path" nginx/ssl/fullchain.pem
+                        cp "$key_path" nginx/ssl/privkey.pem
+                        echo "✅ 证书文件已复制 / Certificate files copied"
+                        cert_ok=true
+                    fi
+                    ;;
+                *)
+                    echo "❌ 无效选项 / Invalid option"
+                    ;;
+            esac
+
+            if [ "$cert_ok" = false ]; then
+                echo ""
+                echo "⚠️  证书未配置成功，将以 HTTP 模式启动"
+                echo "⚠️  Certificate not configured, starting in HTTP mode"
+                echo ""
+                rm -f nginx/conf.d/ssl.conf
+                docker compose up -d
+
+                echo ""
+                echo "访问地址 / Access URL:"
+                echo "http://$domain:$http_port"
+                echo ""
+                echo "💡 证书配置好后，重新运行 ./start.sh 选择 HTTPS 即可"
+            else
+                # 启用 SSL 配置
+                cp nginx/conf.d/ssl.conf.example nginx/conf.d/ssl.conf
+                sed -i "s/your-domain.com/$domain/g" nginx/conf.d/ssl.conf
+                sed -i 's/listen 443 ssl http2/listen 443 ssl/' nginx/conf.d/ssl.conf
+                sed -i '/listen 443 ssl;/a\    http2 on;' nginx/conf.d/ssl.conf
+
+                # 配置摘要
+                echo ""
+                echo "=========================================="
+                echo "  📋 配置摘要 / Configuration Summary"
+                echo "=========================================="
+                echo "  协议: HTTPS"
+                echo "  域名: $domain"
+                echo "  HTTPS 端口: $https_port"
+                echo "  HTTP  端口: $http_port (自动跳转 HTTPS)"
+                echo "=========================================="
+                echo ""
+
+                read -p "确认启动？(Y/n) / Confirm to start? (Y/n): " confirm
+                if [ "$confirm" = "n" ] || [ "$confirm" = "N" ]; then
+                    echo "已取消。稍后可运行 docker compose up -d 启动"
+                    exit 0
+                fi
+
+                echo ""
+                echo "🚀 启动服务..."
+                docker compose up -d
+
+                echo ""
+                echo "=========================================="
+                echo "✅ 部署成功！/ Deployment successful!"
+                echo "=========================================="
+                echo ""
+                echo "访问地址 / Access URL:"
+                echo "https://$domain:$https_port"
+                echo ""
+            fi
         fi
-        echo ""
         ;;
 
     *)
