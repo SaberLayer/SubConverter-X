@@ -1,5 +1,5 @@
 {
-  "name": "subconverter",
+  "name": "subconverter-x",
   "private": true,
   "workspaces": ["packages/*"],
   "scripts": {

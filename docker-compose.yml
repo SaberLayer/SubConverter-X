@@ -4,20 +4,20 @@ services:
   # Backend service
   backend:
     build: .
-    container_name: subconverter-backend
+    container_name: subconverter-x-backend
     environment:
       - PORT=3000
-      - DB_PATH=/app/data/subconverter.db
+      - DB_PATH=/app/data/subconverter-x.db
     volumes:
       - data:/app/data
     restart: unless-stopped
     networks:
-      - subconverter-network
+      - subconverter-x-network
 
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine
-    container_name: subconverter-nginx
+    container_name: subconverter-x-nginx
     ports:
       - "${EXTERNAL_HTTP_PORT:-8080}:80"
       - "${EXTERNAL_HTTPS_PORT:-8443}:443"
@@ -30,12 +30,12 @@ services:
       - backend
     restart: unless-stopped
     networks:
-      - subconverter-network
+      - subconverter-x-network
 
 volumes:
   data:
   nginx-cache:
 
 networks:
-  subconverter-network:
+  subconverter-x-network:
     driver: bridge

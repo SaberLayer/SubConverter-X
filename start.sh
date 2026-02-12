@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# SubConverter 一键启动脚本
-# Quick Start Script for SubConverter
+# SubConverter-X 一键启动脚本
+# Quick Start Script for SubConverter-X
 
 set -e
 
 echo "=========================================="
-echo "  SubConverter 部署助手"
-echo "  SubConverter Deployment Helper"
+echo "  SubConverter-X 部署助手"
+echo "  SubConverter-X Deployment Helper"
 echo "=========================================="
 echo ""
 

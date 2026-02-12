@@ -1,4 +1,4 @@
-# SubConverter - 自建订阅转换工具
+# SubConverter-X - 自建订阅转换工具
 
 隐私优先、协议全覆盖的自部署订阅转换工具。支持 VLESS+Reality+XTLS 等新协议，节点信息不经第三方。
 
@@ -17,8 +17,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/YOUR_USERNAME/subconverter.git
-cd subconverter
+git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
+cd SubConverter-X
 
 # 运行启动脚本
 ./start.sh
@@ -282,7 +282,7 @@ GET /api/convert/rules     # 获取可用的规则模板列表
 ## 项目结构
 
 ```
-subconverter/
+SubConverter-X/
 ├── packages/
 │   ├── backend/src/
 │   │   ├── index.ts              # Express 入口
@@ -317,7 +317,7 @@ subconverter/
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `3000` | 后端服务监听端口 |
-| `DB_PATH` | `./data/subconverter.db` | SQLite 数据库路径 |
+| `DB_PATH` | `./data/subconverter-x.db` | SQLite 数据库路径 |
 | `EXTERNAL_HTTP_PORT` | `8080` | 外部 HTTP 访问端口 |
 | `EXTERNAL_HTTPS_PORT` | `8443` | 外部 HTTPS 访问端口 |
 

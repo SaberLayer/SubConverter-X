@@ -1,4 +1,4 @@
-# SubConverter 使用指南
+# SubConverter-X 使用指南
 
 ## 🎉 新功能
 
@@ -166,7 +166,7 @@ docker-compose restart nginx
 crontab -e
 
 # 添加以下行（每月 1 号凌晨 3 点自动续期）
-0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/subconverter/nginx/ssl/ && docker-compose -f /path/to/subconverter/docker-compose.yml restart nginx
+0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker-compose -f /path/to/SubConverter-X/docker-compose.yml restart nginx
 ```
 
 ### Q5: 国旗显示错误怎么办？
@@ -189,7 +189,7 @@ crontab -e
 ## 📁 项目结构
 
 ```
-subconverter/
+SubConverter-X/
 ├── docker-compose.yml          # Docker 编排配置（包含 Nginx）
 ├── Dockerfile                  # 后端构建配置
 ├── .env.example               # 环境变量模板

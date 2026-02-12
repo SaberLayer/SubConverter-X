@@ -45,11 +45,11 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Build Docker image
-      run: docker build -t subconverter:test .
+      run: docker build -t subconverter-x:test .
 
     - name: Test Docker image
       run: |
-        docker run -d -p 3000:3000 --name test-container subconverter:test
+        docker run -d -p 3000:3000 --name test-container subconverter-x:test
         sleep 10
         curl -f http://localhost:3000 || exit 1
         docker stop test-container

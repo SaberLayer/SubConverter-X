@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SubConverter GitHub 发布脚本
+# SubConverter-X GitHub 发布脚本
 # 使用方法: bash publish.sh YOUR_GITHUB_USERNAME
 
 set -e  # 遇到错误立即退出
@@ -19,9 +19,9 @@ if [ -z "$1" ]; then
 fi
 
 GITHUB_USERNAME=$1
-REPO_NAME="subconverter"
+REPO_NAME="SubConverter-X"
 
-echo -e "${GREEN}=== SubConverter GitHub 发布脚本 ===${NC}\n"
+echo -e "${GREEN}=== SubConverter-X GitHub 发布脚本 ===${NC}\n"
 
 # 步骤 1: 检查敏感文件
 echo -e "${YELLOW}[1/6] 检查敏感文件...${NC}"
@@ -54,9 +54,9 @@ echo -e "\n${YELLOW}[4/6] 创建首次提交...${NC}"
 if git rev-parse HEAD >/dev/null 2>&1; then
     echo -e "${GREEN}✓ 已存在提交记录${NC}"
 else
-    git commit -m "feat: initial commit - SubConverter v1.0.0
+    git commit -m "feat: initial commit - SubConverter-X v1.0.0
 
-🎉 SubConverter - 隐私优先的订阅转换工具
+🎉 SubConverter-X - 隐私优先的订阅转换工具
 
 核心功能：
 - 支持 12 种代理协议（SS/SSR/VMess/VLESS/Trojan/Hysteria/Hysteria2/TUIC/WireGuard/SOCKS5/HTTP）

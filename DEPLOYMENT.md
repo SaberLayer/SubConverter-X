@@ -1,6 +1,6 @@
-# SubConverter 部署指南
+# SubConverter-X 部署指南
 
-本文档提供 SubConverter 的完整部署流程，包括 Docker 部署和手动部署两种方式。
+本文档提供 SubConverter-X 的完整部署流程，包括 Docker 部署和手动部署两种方式。
 
 ## 📋 目录
 
@@ -68,26 +68,26 @@ docker compose version
 cd /opt
 
 # 克隆仓库（替换为你的仓库地址）
-git clone https://github.com/YOUR_USERNAME/subconverter.git
+git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
 
 # 进入项目目录
-cd subconverter
+cd SubConverter-X
 ```
 
 **方式 B：手动上传**
 
 ```bash
 # 在本地打包项目
-tar -czf subconverter.tar.gz subconverter/
+tar -czf SubConverter-X.tar.gz SubConverter-X/
 
 # 上传到服务器
-scp subconverter.tar.gz user@your-server-ip:/opt/
+scp SubConverter-X.tar.gz user@your-server-ip:/opt/
 
 # 在服务器上解压
 ssh user@your-server-ip
 cd /opt
-tar -xzf subconverter.tar.gz
-cd subconverter
+tar -xzf SubConverter-X.tar.gz
+cd SubConverter-X
 ```
 
 ### 步骤 3：配置环境变量
@@ -150,7 +150,7 @@ sudo apt install nginx -y
 #### 6.2 创建 Nginx 配置
 
 ```bash
-sudo nano /etc/nginx/sites-available/subconverter
+sudo nano /etc/nginx/sites-available/subconverter-x
 ```
 
 粘贴以下配置（**替换 `sub.yourdomain.com` 为你的域名**）：
@@ -167,8 +167,8 @@ server {
     client_max_body_size 10M;
 
     # 日志配置
-    access_log /var/log/nginx/subconverter_access.log;
-    error_log /var/log/nginx/subconverter_error.log;
+    access_log /var/log/nginx/subconverter-x_access.log;
+    error_log /var/log/nginx/subconverter-x_error.log;
 
     location / {
         # 速率限制：每秒 10 个请求，突发 20 个
@@ -199,7 +199,7 @@ server {
 
 ```bash
 # 创建软链接
-sudo ln -s /etc/nginx/sites-available/subconverter /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/subconverter-x /etc/nginx/sites-enabled/
 
 # 测试配置文件语法
 sudo nginx -t
@@ -248,7 +248,7 @@ sudo ufw status
 - HTTP: `http://sub.yourdomain.com`
 - HTTPS: `https://sub.yourdomain.com`
 
-应该能看到 SubConverter 的前端界面。
+应该能看到 SubConverter-X 的前端界面。
 
 ---
 
@@ -274,7 +274,7 @@ npm --version
 
 ```bash
 # 进入项目目录
-cd /opt/subconverter
+cd /opt/SubConverter-X
 
 # 安装依赖
 npm install
@@ -299,7 +299,7 @@ pm2 --version
 ### 步骤 4：创建 PM2 配置文件
 
 ```bash
-nano /opt/subconverter/ecosystem.config.js
+nano /opt/SubConverter-X/ecosystem.config.js
 ```
 
 粘贴以下内容：
@@ -307,9 +307,9 @@ nano /opt/subconverter/ecosystem.config.js
 ```javascript
 module.exports = {
   apps: [{
-    name: 'subconverter',
+    name: 'subconverter-x',
     script: './packages/backend/dist/index.js',
-    cwd: '/opt/subconverter',
+    cwd: '/opt/SubConverter-X',
     instances: 2,  // 使用 2 个实例（集群模式）
     exec_mode: 'cluster',
     env: {
@@ -331,7 +331,7 @@ module.exports = {
 
 ```bash
 # 创建日志目录
-mkdir -p /opt/subconverter/logs
+mkdir -p /opt/SubConverter-X/logs
 
 # 使用配置文件启动
 pm2 start ecosystem.config.js
@@ -340,7 +340,7 @@ pm2 start ecosystem.config.js
 pm2 status
 
 # 查看日志
-pm2 logs subconverter
+pm2 logs subconverter-x
 ```
 
 ### 步骤 6：设置开机自启
@@ -369,7 +369,7 @@ pm2 save
 创建自动备份脚本：
 
 ```bash
-sudo nano /opt/backup-subconverter.sh
+sudo nano /opt/backup-subconverter-x.sh
 ```
 
 内容：
@@ -378,8 +378,8 @@ sudo nano /opt/backup-subconverter.sh
 #!/bin/bash
 
 # 配置
-BACKUP_DIR="/opt/backups/subconverter"
-DB_PATH="/opt/subconverter/data/subscriptions.db"
+BACKUP_DIR="/opt/backups/subconverter-x"
+DB_PATH="/opt/SubConverter-X/data/subscriptions.db"
 DATE=$(date +%Y%m%d_%H%M%S)
 KEEP_DAYS=7
 
@@ -404,13 +404,13 @@ echo "$(date): 已清理 $KEEP_DAYS 天前的备份"
 
 ```bash
 # 添加执行权限
-sudo chmod +x /opt/backup-subconverter.sh
+sudo chmod +x /opt/backup-subconverter-x.sh
 
 # 编辑 crontab
 crontab -e
 
 # 添加以下行（每天凌晨 3 点备份）
-0 3 * * * /opt/backup-subconverter.sh >> /var/log/subconverter-backup.log 2>&1
+0 3 * * * /opt/backup-subconverter-x.sh >> /var/log/subconverter-x-backup.log 2>&1
 ```
 
 ### 2. 日志轮转
@@ -418,13 +418,13 @@ crontab -e
 创建日志轮转配置：
 
 ```bash
-sudo nano /etc/logrotate.d/subconverter
+sudo nano /etc/logrotate.d/subconverter-x
 ```
 
 内容：
 
 ```
-/opt/subconverter/logs/*.log {
+/opt/SubConverter-X/logs/*.log {
     daily
     rotate 7
     compress
@@ -453,7 +453,7 @@ bash <(curl -Ss https://my-netdata.io/kickstart.sh)
 ### 1. 限制数据库文件权限
 
 ```bash
-chmod 600 /opt/subconverter/data/subscriptions.db
+chmod 600 /opt/SubConverter-X/data/subscriptions.db
 ```
 
 ### 2. 配置 Fail2Ban 防止暴力攻击
@@ -486,7 +486,7 @@ sudo nano /etc/fail2ban/jail.local
 [nginx-limit-req]
 enabled = true
 filter = nginx-limit-req
-logpath = /var/log/nginx/subconverter_error.log
+logpath = /var/log/nginx/subconverter-x_error.log
 maxretry = 5
 findtime = 600
 bantime = 3600
@@ -547,7 +547,7 @@ docker compose restart
 docker compose down
 
 # 更新服务
-cd /opt/subconverter
+cd /opt/SubConverter-X
 git pull
 docker compose down
 docker compose up -d --build
@@ -560,23 +560,23 @@ docker compose up -d --build
 pm2 status
 
 # 查看实时日志
-pm2 logs subconverter
+pm2 logs subconverter-x
 
 # 查看资源监控
 pm2 monit
 
 # 重启服务
-pm2 restart subconverter
+pm2 restart subconverter-x
 
 # 停止服务
-pm2 stop subconverter
+pm2 stop subconverter-x
 
 # 更新服务
-cd /opt/subconverter
+cd /opt/SubConverter-X
 git pull
 npm install
 npm run build
-pm2 restart subconverter
+pm2 restart subconverter-x
 ```
 
 ### 性能监控
@@ -657,7 +657,7 @@ docker compose ps  # Docker 部署
 pm2 status         # PM2 部署
 
 # 查看 Nginx 错误日志
-sudo tail -f /var/log/nginx/subconverter_error.log
+sudo tail -f /var/log/nginx/subconverter-x_error.log
 
 # 测试 Nginx 配置
 sudo nginx -t
@@ -674,15 +674,15 @@ sudo systemctl restart nginx
 
 ```bash
 # 检查数据目录权限
-ls -la /opt/subconverter/data/
+ls -la /opt/SubConverter-X/data/
 
 # 修复权限（Docker 部署）
-sudo chown -R 1000:1000 /opt/subconverter/data/
+sudo chown -R 1000:1000 /opt/SubConverter-X/data/
 
 # 修复权限（PM2 部署）
-sudo chown -R $USER:$USER /opt/subconverter/data/
-chmod 755 /opt/subconverter/data/
-chmod 644 /opt/subconverter/data/subscriptions.db
+sudo chown -R $USER:$USER /opt/SubConverter-X/data/
+chmod 755 /opt/SubConverter-X/data/
+chmod 644 /opt/SubConverter-X/data/subscriptions.db
 ```
 
 ### 5. SSL 证书续期失败
@@ -747,7 +747,7 @@ sudo swapon /swapfile
 ```bash
 # 查看后端日志
 docker compose logs -f  # Docker
-pm2 logs subconverter   # PM2
+pm2 logs subconverter-x   # PM2
 
 # 检查输入格式是否正确
 # 确认协议是否被目标格式支持（参考 README.md 协议兼容性矩阵）
@@ -787,7 +787,7 @@ curl -I "订阅URL"
 ### Docker 部署更新
 
 ```bash
-cd /opt/subconverter
+cd /opt/SubConverter-X
 
 # 拉取最新代码
 git pull
@@ -805,7 +805,7 @@ docker compose logs -f
 ### PM2 部署更新
 
 ```bash
-cd /opt/subconverter
+cd /opt/SubConverter-X
 
 # 拉取最新代码
 git pull
@@ -817,10 +817,10 @@ npm install
 npm run build
 
 # 重启服务
-pm2 restart subconverter
+pm2 restart subconverter-x
 
 # 查看日志
-pm2 logs subconverter
+pm2 logs subconverter-x
 ```
 
 ---
@@ -830,18 +830,18 @@ pm2 logs subconverter
 ### Docker 部署卸载
 
 ```bash
-cd /opt/subconverter
+cd /opt/SubConverter-X
 
 # 停止并删除容器
 docker compose down -v
 
 # 删除项目文件
 cd /opt
-sudo rm -rf subconverter
+sudo rm -rf SubConverter-X
 
 # 删除 Nginx 配置
-sudo rm /etc/nginx/sites-enabled/subconverter
-sudo rm /etc/nginx/sites-available/subconverter
+sudo rm /etc/nginx/sites-enabled/subconverter-x
+sudo rm /etc/nginx/sites-available/subconverter-x
 sudo systemctl reload nginx
 
 # 删除 SSL 证书
@@ -852,12 +852,12 @@ sudo certbot delete --cert-name sub.yourdomain.com
 
 ```bash
 # 停止并删除 PM2 进程
-pm2 delete subconverter
+pm2 delete subconverter-x
 pm2 save
 
 # 删除项目文件
 cd /opt
-sudo rm -rf subconverter
+sudo rm -rf SubConverter-X
 
 # 删除 Nginx 配置（同上）
 ```
@@ -870,7 +870,7 @@ sudo rm -rf subconverter
 
 1. 查看本文档的「常见问题」章节
 2. 查看项目日志获取详细错误信息
-3. 在 GitHub Issues 提交问题：`https://github.com/YOUR_USERNAME/subconverter/issues`
+3. 在 GitHub Issues 提交问题：`https://github.com/YOUR_USERNAME/SubConverter-X/issues`
 4. 提供以下信息以便快速定位问题：
    - 操作系统版本
    - 部署方式（Docker/PM2）
@@ -908,4 +908,4 @@ TTL: 600
 
 **文档版本**: v1.0
 **最后更新**: 2026-02-12
-**适用版本**: SubConverter v1.0.0+
+**适用版本**: SubConverter-X v1.0.0+
