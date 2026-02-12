@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Backend service
+  backend:
+    build: .
+    container_name: subconverter-backend
+    environment:
+      - PORT=3000
+      - DB_PATH=/app/data/subconverter.db
+    volumes:
+      - data:/app/data
+    restart: unless-stopped
+    networks:
+      - subconverter-network
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: subconverter-nginx
+    ports:
+      - "${EXTERNAL_HTTP_PORT:-8080}:80"
+      - "${EXTERNAL_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - subconverter-network
+
+volumes:
+  data:
+  nginx-cache:
+
+networks:
+  subconverter-network:
+    driver: bridge
