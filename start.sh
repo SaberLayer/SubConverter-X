@@ -78,6 +78,19 @@ case $mode in
 
     2)
         echo ""
+        echo "⚠️  注意：此模式将使用 80 和 443 端口"
+        echo "⚠️  Note: This mode will use port 80 and 443"
+        echo "   如果这些端口已被占用，请选择 3（自定义配置）"
+        echo "   If these ports are in use, please choose 3 (Custom configuration)"
+        echo ""
+        read -p "继续？(y/N) / Continue? (y/N): " continue_mode2
+        if [ "$continue_mode2" != "y" ] && [ "$continue_mode2" != "Y" ]; then
+            echo ""
+            echo "已取消，请重新运行脚本选择其他模式"
+            echo "Cancelled, please re-run and select another mode"
+            exit 0
+        fi
+        echo ""
         read -p "请输入您的域名 / Enter your domain: " domain
 
         if [ -z "$domain" ]; then
@@ -133,16 +146,79 @@ case $mode in
 
     3)
         echo ""
-        echo "📝 请手动编辑 .env 文件进行配置"
-        echo "📝 Please manually edit .env file for configuration"
+        echo "📝 自定义配置 / Custom configuration"
+        echo "   直接回车使用 [括号内] 的默认值"
+        echo "   Press Enter to use the [default] value"
         echo ""
-        read -p "配置完成后按回车启动 / Press Enter to start after configuration: "
+
+        # HTTP 端口
+        read -p "HTTP 端口 / HTTP port [8080]: " http_port
+        http_port=${http_port:-8080}
+
+        # HTTPS 端口
+        read -p "HTTPS 端口 / HTTPS port [8443]: " https_port
+        https_port=${https_port:-8443}
+
+        # 域名
+        read -p "域名（可选，直接回车跳过）/ Domain (optional, Enter to skip): " domain
+
+        # 写入 .env
+        sed -i "s/EXTERNAL_HTTP_PORT=.*/EXTERNAL_HTTP_PORT=$http_port/" .env
+        sed -i "s/EXTERNAL_HTTPS_PORT=.*/EXTERNAL_HTTPS_PORT=$https_port/" .env
+
+        # 显示配置摘要
+        echo ""
+        echo "=========================================="
+        echo "  📋 配置摘要 / Configuration Summary"
+        echo "=========================================="
+        echo "  HTTP  端口: $http_port"
+        echo "  HTTPS 端口: $https_port"
+        if [ -n "$domain" ]; then
+            echo "  域名: $domain"
+        fi
+        echo "=========================================="
+        echo ""
+
+        # 如果填了域名，配置 SSL
+        if [ -n "$domain" ]; then
+            if [ -f nginx/conf.d/ssl.conf.example ] && [ ! -f nginx/conf.d/ssl.conf ]; then
+                cp nginx/conf.d/ssl.conf.example nginx/conf.d/ssl.conf
+                sed -i "s/your-domain.com/$domain/g" nginx/conf.d/ssl.conf
+                echo "✅ 已配置域名: $domain"
+            fi
+            echo ""
+            echo "⚠️  如需 HTTPS，请先获取 SSL 证书："
+            echo "   sudo certbot certonly --standalone -d $domain"
+            echo "   sudo cp /etc/letsencrypt/live/$domain/fullchain.pem nginx/ssl/"
+            echo "   sudo cp /etc/letsencrypt/live/$domain/privkey.pem nginx/ssl/"
+            echo ""
+        fi
+
+        read -p "确认启动？(Y/n) / Confirm to start? (Y/n): " confirm
+        if [ "$confirm" = "n" ] || [ "$confirm" = "N" ]; then
+            echo "已取消。配置已保存到 .env，稍后可运行 docker compose up -d 启动"
+            exit 0
+        fi
+
+        echo ""
+        echo "🚀 启动服务..."
+        echo "🚀 Starting services..."
         docker compose up -d
 
         echo ""
         echo "=========================================="
         echo "✅ 部署成功！/ Deployment successful!"
         echo "=========================================="
+        echo ""
+        echo "访问地址 / Access URL:"
+        if [ -n "$domain" ]; then
+            echo "http://$domain:$http_port"
+        else
+            echo "http://localhost:$http_port"
+            echo "或 / or"
+            echo "http://$(hostname -I | awk '{print $1}'):$http_port"
+        fi
+        echo ""
         ;;
 
     *)
