@@ -28,9 +28,9 @@ fi
 check_port() {
     local port=$1
     if command -v ss &> /dev/null; then
-        ss -tlnp 2>/dev/null | grep -q ":$port " && return 0
+        ss -tlnp 2>/dev/null | grep -qE ":${port}([^0-9]|$)" && return 0
     elif command -v netstat &> /dev/null; then
-        netstat -tlnp 2>/dev/null | grep -q ":$port " && return 0
+        netstat -tlnp 2>/dev/null | grep -qE ":${port}([^0-9]|$)" && return 0
     fi
     return 1
 }
@@ -47,10 +47,37 @@ get_env_value() {
     local default=$2
     if [ -f .env ]; then
         local value
-        value=$(grep "^${key}=" .env 2>/dev/null | cut -d'=' -f2)
+        value=$(grep "^${key}=" .env 2>/dev/null | cut -d'=' -f2-)
         echo "${value:-$default}"
     else
         echo "$default"
+    fi
+}
+
+# 验证端口号
+validate_port() {
+    local port=$1
+    if ! echo "$port" | grep -qE '^[0-9]+$'; then
+        echo -e "${RED}❌ 端口号必须为数字 / Port must be a number${NC}"
+        return 1
+    fi
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo -e "${RED}❌ 端口号范围 1-65535 / Port must be between 1-65535${NC}"
+        return 1
+    fi
+    return 0
+}
+
+# 安全地设置 .env 中的键值
+set_env_value() {
+    local key=$1
+    local value=$2
+    if grep -q "^${key}=" .env 2>/dev/null; then
+        sed -i "s|^${key}=.*|${key}=${value}|" .env
+    elif grep -q "^# *${key}=" .env 2>/dev/null; then
+        sed -i "s|^# *${key}=.*|${key}=${value}|" .env
+    else
+        echo "${key}=${value}" >> .env
     fi
 }
 
@@ -60,14 +87,18 @@ show_access_url() {
     http_port=$(get_env_value "EXTERNAL_HTTP_PORT" "8080")
     local https_port
     https_port=$(get_env_value "EXTERNAL_HTTPS_PORT" "8443")
-    local server_ip
-    server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    local domain
+    domain=$(get_env_value "DOMAIN" "")
+    local host
+    local ip
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    host="${domain:-${ip:-localhost}}"
 
     echo -e "${GREEN}访问地址 / Access URL:${NC}"
     if [ -f nginx/conf.d/ssl.conf ]; then
-        echo "  https://${server_ip}:${https_port}"
+        echo "  https://${host}:${https_port}"
     else
-        echo "  http://${server_ip}:${http_port}"
+        echo "  http://${host}:${http_port}"
     fi
 }
 
@@ -160,6 +191,10 @@ deploy_http() {
     read -p "HTTP 端口 / HTTP port [8080]: " http_port
     http_port=${http_port:-8080}
 
+    if ! validate_port "$http_port"; then
+        return
+    fi
+
     # 端口冲突检测
     if check_port "$http_port"; then
         echo ""
@@ -173,10 +208,20 @@ deploy_http() {
     read -p "域名（可选，直接回车跳过）/ Domain (optional, Enter to skip): " domain
 
     # 写入 .env
-    sed -i "s/EXTERNAL_HTTP_PORT=.*/EXTERNAL_HTTP_PORT=$http_port/" .env
+    set_env_value "EXTERNAL_HTTP_PORT" "$http_port"
+    if [ -n "$domain" ]; then
+        set_env_value "DOMAIN" "$domain"
+    else
+        sed -i "s/^DOMAIN=.*/#DOMAIN=/" .env 2>/dev/null
+    fi
 
     # 确保没有残留的 ssl.conf
     rm -f nginx/conf.d/ssl.conf
+
+    # 恢复 default.conf（可能被 HTTPS 模式禁用过）
+    if [ ! -f nginx/conf.d/default.conf ] && [ -f nginx/conf.d/default.conf.bak ]; then
+        mv nginx/conf.d/default.conf.bak nginx/conf.d/default.conf
+    fi
 
     # 配置摘要
     echo ""
@@ -199,7 +244,7 @@ deploy_http() {
 
     echo ""
     echo "🚀 启动服务..."
-    if docker compose up -d --build; then
+    if docker compose up -d --build --force-recreate; then
         echo ""
         echo -e "${GREEN}==========================================${NC}"
         echo -e "${GREEN}  ✅ 部署成功！/ Deployment successful!${NC}"
@@ -230,6 +275,10 @@ deploy_https() {
     read -p "HTTP 端口（用于跳转 HTTPS）/ HTTP port (redirect to HTTPS) [8080]: " http_port
     http_port=${http_port:-8080}
 
+    if ! validate_port "$https_port" || ! validate_port "$http_port"; then
+        return
+    fi
+
     # 端口冲突检测
     local port_conflict=false
     if check_port "$https_port"; then
@@ -248,8 +297,9 @@ deploy_https() {
     fi
 
     # 写入 .env
-    sed -i "s/EXTERNAL_HTTP_PORT=.*/EXTERNAL_HTTP_PORT=$http_port/" .env
-    sed -i "s/EXTERNAL_HTTPS_PORT=.*/EXTERNAL_HTTPS_PORT=$https_port/" .env
+    set_env_value "EXTERNAL_HTTP_PORT" "$http_port"
+    set_env_value "EXTERNAL_HTTPS_PORT" "$https_port"
+    set_env_value "DOMAIN" "$domain"
 
     # 配置证书
     echo ""
@@ -266,15 +316,40 @@ deploy_https() {
             echo ""
             if ! command -v certbot &> /dev/null; then
                 echo "📦 安装 certbot..."
-                apt-get update -qq && apt-get install -y -qq certbot > /dev/null 2>&1
+                if command -v apt-get &> /dev/null; then
+                    apt-get update -qq && apt-get install -y -qq certbot > /dev/null 2>&1
+                elif command -v yum &> /dev/null; then
+                    yum install -y -q certbot > /dev/null 2>&1
+                elif command -v dnf &> /dev/null; then
+                    dnf install -y -q certbot > /dev/null 2>&1
+                elif command -v apk &> /dev/null; then
+                    apk add --quiet certbot > /dev/null 2>&1
+                else
+                    echo -e "${RED}❌ 无法自动安装 certbot，请手动安装${NC}"
+                    echo "   https://certbot.eff.org/instructions"
+                    return
+                fi
             fi
 
             echo "🔐 申请 SSL 证书..."
             echo "   域名: $domain"
             echo ""
 
-            if certbot certonly --standalone -d "$domain" --non-interactive --agree-tos --register-unsafely-without-email 2>/dev/null || \
-               certbot certonly --standalone -d "$domain"; then
+            # 如果服务运行中且占用了 80 端口，certbot standalone 会失败
+            local skip_certbot=false
+            if is_running && check_port 80; then
+                echo -e "${YELLOW}⚠️  检测到 80 端口被占用，certbot 可能无法验证${NC}"
+                echo "   建议先停止服务（选项 5）或使用手动证书（选项 2）"
+                read -p "仍然尝试？(y/N): " try_cert
+                if [ "$try_cert" != "y" ] && [ "$try_cert" != "Y" ]; then
+                    skip_certbot=true
+                fi
+            fi
+
+            if [ "$skip_certbot" = true ]; then
+                echo -e "${YELLOW}已跳过证书申请${NC}"
+            elif certbot certonly --standalone -d "$domain" --non-interactive --agree-tos --register-unsafely-without-email 2>/dev/null || \
+                 certbot certonly --standalone -d "$domain"; then
                 mkdir -p nginx/ssl
                 cp "/etc/letsencrypt/live/$domain/fullchain.pem" nginx/ssl/
                 cp "/etc/letsencrypt/live/$domain/privkey.pem" nginx/ssl/
@@ -315,7 +390,11 @@ deploy_https() {
         echo ""
         echo -e "${YELLOW}⚠️  证书未配置成功，将以 HTTP 模式启动${NC}"
         rm -f nginx/conf.d/ssl.conf
-        docker compose up -d --build
+        # 恢复 default.conf
+        if [ ! -f nginx/conf.d/default.conf ] && [ -f nginx/conf.d/default.conf.bak ]; then
+            mv nginx/conf.d/default.conf.bak nginx/conf.d/default.conf
+        fi
+        docker compose up -d --build --force-recreate
 
         echo ""
         echo "访问地址: http://$domain:$http_port"
@@ -328,6 +407,16 @@ deploy_https() {
     sed -i "s/your-domain.com/$domain/g" nginx/conf.d/ssl.conf
     sed -i 's/listen 443 ssl http2/listen 443 ssl/' nginx/conf.d/ssl.conf
     sed -i '/listen 443 ssl;/a\    http2 on;' nginx/conf.d/ssl.conf
+
+    # 修正 HTTPS 重定向地址（使用实际外部端口）
+    if [ "$https_port" != "443" ]; then
+        sed -i "s|return 301 https://\$server_name\$request_uri;|return 301 https://\$server_name:${https_port}\$request_uri;|" nginx/conf.d/ssl.conf
+    fi
+
+    # HTTPS 模式下禁用 default.conf 避免端口 80 冲突
+    if [ -f nginx/conf.d/default.conf ]; then
+        mv nginx/conf.d/default.conf nginx/conf.d/default.conf.bak
+    fi
 
     # 配置摘要
     echo ""
@@ -349,7 +438,7 @@ deploy_https() {
 
     echo ""
     echo "🚀 启动服务..."
-    if docker compose up -d --build; then
+    if docker compose up -d --build --force-recreate; then
         echo ""
         echo -e "${GREEN}==========================================${NC}"
         echo -e "${GREEN}  ✅ 部署成功！/ Deployment successful!${NC}"
@@ -375,11 +464,19 @@ do_update() {
     fi
 
     # 检查远程是否有更新
-    git fetch origin 2>/dev/null
+    if ! git fetch origin 2>/dev/null; then
+        echo -e "${RED}❌ 无法连接到远程仓库 / Cannot reach remote repository${NC}"
+        return
+    fi
     local local_hash
     local_hash=$(git rev-parse HEAD 2>/dev/null)
     local remote_hash
     remote_hash=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null)
+
+    if [ -z "$remote_hash" ]; then
+        echo -e "${RED}❌ 无法获取远程分支信息 / Cannot find remote branch${NC}"
+        return
+    fi
 
     if [ "$local_hash" = "$remote_hash" ]; then
         echo -e "${GREEN}✅ 已是最新版本 / Already up to date${NC}"
@@ -394,23 +491,30 @@ do_update() {
         return
     fi
 
-    # 备份用户配置
+    # 备份用户配置（先清理残留备份防止目录嵌套）
     echo ""
     echo "💾 备份用户配置..."
     [ -f .env ] && cp .env .env.backup
     [ -f nginx/conf.d/ssl.conf ] && cp nginx/conf.d/ssl.conf nginx/conf.d/ssl.conf.backup
-    [ -d nginx/ssl ] && cp -r nginx/ssl nginx/ssl.backup 2>/dev/null
+    if [ -d nginx/ssl ]; then
+        rm -rf nginx/ssl.backup
+        cp -r nginx/ssl nginx/ssl.backup 2>/dev/null
+    fi
 
     # 拉取最新代码
     echo "📥 拉取最新代码..."
-    git checkout -- . 2>/dev/null
+    git stash --include-untracked 2>/dev/null
     if git pull; then
         echo -e "${GREEN}✅ 代码更新成功${NC}"
     else
-        echo -e "${RED}❌ 代码拉取失败${NC}"
+        echo -e "${RED}❌ 代码拉取失败，回滚中...${NC}"
+        git stash pop 2>/dev/null
         [ -f .env.backup ] && mv .env.backup .env
         [ -f nginx/conf.d/ssl.conf.backup ] && mv nginx/conf.d/ssl.conf.backup nginx/conf.d/ssl.conf
-        [ -d nginx/ssl.backup ] && rm -rf nginx/ssl && mv nginx/ssl.backup nginx/ssl
+        if [ -d nginx/ssl.backup ]; then
+            rm -rf nginx/ssl
+            mv nginx/ssl.backup nginx/ssl
+        fi
         return
     fi
 
@@ -418,12 +522,15 @@ do_update() {
     echo "📂 恢复用户配置..."
     [ -f .env.backup ] && mv .env.backup .env
     [ -f nginx/conf.d/ssl.conf.backup ] && mv nginx/conf.d/ssl.conf.backup nginx/conf.d/ssl.conf
-    [ -d nginx/ssl.backup ] && rm -rf nginx/ssl && mv nginx/ssl.backup nginx/ssl
+    if [ -d nginx/ssl.backup ]; then
+        rm -rf nginx/ssl
+        mv nginx/ssl.backup nginx/ssl
+    fi
 
     # 重新构建并启动
     echo ""
     echo "🔨 重新构建服务..."
-    if docker compose up -d --build; then
+    if docker compose up -d --build --force-recreate; then
         echo ""
         echo -e "${GREEN}==========================================${NC}"
         echo -e "${GREEN}  ✅ 更新完成！/ Update successful!${NC}"

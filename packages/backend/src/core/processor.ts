@@ -3,6 +3,24 @@ import { addEmojiFlag, detectRegion } from './emoji';
 
 export type SortMode = 'none' | 'name' | 'region';
 
+const MAX_REGEX_LENGTH = 500;
+
+/**
+ * Safely create a RegExp — rejects overly complex patterns to prevent ReDoS
+ */
+function safeRegex(pattern: string, flags = ''): RegExp | null {
+  if (pattern.length > MAX_REGEX_LENGTH) return null;
+  // Reject patterns with nested quantifiers like (a+)+ or (a*)*
+  if (/(\([^)]*[+*][^)]*\))[+*{]/.test(pattern)) return null;
+  // Reject backreferences with quantifiers
+  if (/\\[1-9][+*{]/.test(pattern)) return null;
+  try {
+    return new RegExp(pattern, flags);
+  } catch {
+    return null;
+  }
+}
+
 export interface ProcessOptions {
   include?: string;        // regex — only keep nodes whose name matches
   exclude?: string;        // regex — remove nodes whose name matches
@@ -19,18 +37,14 @@ export function processNodes(nodes: ProxyNode[], opts: ProcessOptions): ProxyNod
 
   // Include filter
   if (opts.include) {
-    try {
-      const re = new RegExp(opts.include, 'i');
-      result = result.filter((n) => re.test(n.name));
-    } catch { /* invalid regex, skip */ }
+    const re = safeRegex(opts.include, 'i');
+    if (re) result = result.filter((n) => re.test(n.name));
   }
 
   // Exclude filter
   if (opts.exclude) {
-    try {
-      const re = new RegExp(opts.exclude, 'i');
-      result = result.filter((n) => !re.test(n.name));
-    } catch { /* invalid regex, skip */ }
+    const re = safeRegex(opts.exclude, 'i');
+    if (re) result = result.filter((n) => !re.test(n.name));
   }
 
   // Rename
@@ -39,9 +53,8 @@ export function processNodes(nodes: ProxyNode[], opts: ProcessOptions): ProxyNod
     result = result.map((n) => {
       let name = n.name;
       for (const { pattern, replacement } of rules) {
-        try {
-          name = name.replace(new RegExp(pattern, 'g'), replacement);
-        } catch { /* invalid regex, skip */ }
+        const re = safeRegex(pattern, 'g');
+        if (re) name = name.replace(re, replacement);
       }
       return { ...n, name: name.trim() || n.name };
     });

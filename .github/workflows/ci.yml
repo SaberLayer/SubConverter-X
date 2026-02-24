@@ -31,13 +31,11 @@ jobs:
 
     - name: Build frontend
       run: npm run build --workspace=packages/frontend
-      continue-on-error: true
 
     - name: Type check
       run: |
         cd packages/backend && npx tsc --noEmit
         cd ../frontend && npx tsc --noEmit
-      continue-on-error: true
 
   docker-build:
     runs-on: ubuntu-latest
@@ -50,6 +48,17 @@ jobs:
     - name: Test Docker image
       run: |
         docker run -d -p 3000:3000 --name test-container subconverter-x:test
-        sleep 10
+        for i in $(seq 1 30); do
+          if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+            echo "Service is ready after ${i}s"
+            break
+          fi
+          if [ "$i" -eq 30 ]; then
+            echo "Service failed to start within 30s"
+            docker logs test-container
+            exit 1
+          fi
+          sleep 1
+        done
         curl -f http://localhost:3000 || exit 1
         docker stop test-container

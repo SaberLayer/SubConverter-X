@@ -3,6 +3,7 @@ import { uriParser } from '../parsers/uri';
 import { clashParser } from '../parsers/clash';
 import { singboxParser } from '../parsers/singbox';
 import { base64Parser } from '../parsers/base64';
+import { validateUrl } from './url-safety';
 
 const parsers: Parser[] = [uriParser, clashParser, singboxParser, base64Parser];
 
@@ -14,11 +15,13 @@ export interface ParseResult {
 const URL_RE = /^https?:\/\/.+/i;
 
 async function fetchSubscription(url: string, timeout = 15000): Promise<{ body: string; userinfo?: string }> {
+  await validateUrl(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
     const resp = await fetch(url, {
       signal: controller.signal,
+      redirect: 'follow',
       headers: { 'User-Agent': 'SubConverter/1.0' },
     });
     clearTimeout(timer);

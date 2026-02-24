@@ -82,9 +82,9 @@ REMOTE_URL="https://github.com/${GITHUB_USERNAME}/${REPO_NAME}.git"
 
 if git remote | grep -q "origin"; then
     echo -e "${YELLOW}远程仓库已存在，更新 URL...${NC}"
-    git remote set-url origin $REMOTE_URL
+    git remote set-url origin "$REMOTE_URL"
 else
-    git remote add origin $REMOTE_URL
+    git remote add origin "$REMOTE_URL"
 fi
 
 echo -e "${GREEN}✓ 远程仓库: ${REMOTE_URL}${NC}"

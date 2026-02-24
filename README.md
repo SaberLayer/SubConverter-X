@@ -312,7 +312,7 @@ SubConverter-X/
 │   │   └── routes/               # API 路由
 │   └── frontend/src/             # React 前端
 ├── Dockerfile
-└── docker compose.yml
+└── docker-compose.yml
 ```
 
 ## 技术栈
@@ -330,6 +330,7 @@ SubConverter-X/
 | `DB_PATH` | `./data/subconverter-x.db` | SQLite 数据库路径 |
 | `EXTERNAL_HTTP_PORT` | `8080` | 外部 HTTP 访问端口 |
 | `EXTERNAL_HTTPS_PORT` | `8443` | 外部 HTTPS 访问端口 |
+| `DOMAIN` | (空) | 域名（可选，配置后访问地址显示域名） |
 
 ## 部署配置
 

@@ -107,7 +107,7 @@ nano .env
 PORT=3000
 
 # 数据库路径
-DB_PATH=./data/subscriptions.db
+DB_PATH=./data/subconverter-x.db
 
 # 运行环境
 NODE_ENV=production
@@ -719,7 +719,7 @@ sudo nginx -t
 free -h
 
 # Docker 部署：限制容器内存
-# 编辑 docker compose.yml，添加：
+# 编辑 docker-compose.yml，添加：
 # services:
 #   app:
 #     deploy:

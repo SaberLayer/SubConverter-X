@@ -25,6 +25,9 @@ data/
 packages/backend/data/
 packages/backend/.rule-cache/
 
+# Claude Code
+.claude/
+
 # IDE
 .vscode/
 .idea/
@@ -45,6 +48,13 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+# SSL certificates
+nginx/ssl/*.pem
+
+# Backup files
+*.backup
+*.bak
 
 # OS
 Thumbs.db

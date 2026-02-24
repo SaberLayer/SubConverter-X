@@ -44,6 +44,9 @@ function getDb(): Database.Database {
     if (!colNames.has('enable_udp')) db.exec('ALTER TABLE subscriptions ADD COLUMN enable_udp INTEGER');
     if (!colNames.has('skip_cert_verify')) db.exec('ALTER TABLE subscriptions ADD COLUMN skip_cert_verify INTEGER');
     if (!colNames.has('proxy_groups')) db.exec('ALTER TABLE subscriptions ADD COLUMN proxy_groups TEXT');
+
+    // Index for cleanup queries
+    db.exec('CREATE INDEX IF NOT EXISTS idx_subscriptions_created_at ON subscriptions(created_at)');
   }
   return db;
 }
@@ -86,6 +89,28 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
     options.proxyGroups ? JSON.stringify(options.proxyGroups) : null
   );
 }
+
+/**
+ * Delete subscriptions older than given days (default 90 days)
+ */
+export function cleanupExpired(days = 90): number {
+  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+  const result = getDb().prepare('DELETE FROM subscriptions WHERE created_at < ?').run(cutoff);
+  return result.changes;
+}
+
+// Run cleanup on startup and then every 24 hours
+let cleanupStarted = false;
+function startCleanupSchedule() {
+  if (cleanupStarted) return;
+  cleanupStarted = true;
+  const run = () => {
+    try { cleanupExpired(); } catch { /* ignore */ }
+  };
+  run();
+  setInterval(run, 24 * 60 * 60 * 1000);
+}
+startCleanupSchedule();
 
 export function getSubscription(token: string): SubscriptionOptions | null {
   const row = getDb().prepare(

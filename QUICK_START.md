@@ -93,7 +93,7 @@ chmod +x start.sh
 
 **A:** 运行 `subx` → 选 `7`，输入 `yes` 确认，可选是否删除项目文件。
 
-### Q4: SSL 证书如何续期？
+### Q6: SSL 证书如何续期？
 
 Let's Encrypt 证书有效期 90 天，需要定期续期：
 
@@ -116,10 +116,10 @@ docker compose restart nginx
 crontab -e
 
 # 添加以下行（每月 1 号凌晨 3 点自动续期）
-0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker compose -f /path/to/SubConverter-X/docker compose.yml restart nginx
+0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker compose -f /path/to/SubConverter-X/docker-compose.yml restart nginx
 ```
 
-### Q5: 国旗显示错误怎么办？
+### Q7: 国旗显示错误怎么办？
 
 已修复！之前的问题是国家代码匹配规则太宽泛，现在使用单词边界匹配，不会再误判。
 
@@ -127,7 +127,7 @@ crontab -e
 - ❌ 之前：`Reality-57zx2brc` 会被识别为巴西（因为包含 "br"）
 - ✅ 现在：只有完整的 "BR" 单词才会被识别为巴西
 
-### Q6: 如何添加新语言？
+### Q8: 如何添加新语言？
 
 1. 在 `packages/frontend/src/locales/` 目录创建新的语言文件，如 `ja.json`（日语）
 2. 复制 `en.json` 的内容并翻译
@@ -140,7 +140,7 @@ crontab -e
 
 ```
 SubConverter-X/
-├── docker compose.yml          # Docker 编排配置（包含 Nginx）
+├── docker-compose.yml          # Docker 编排配置（包含 Nginx）
 ├── Dockerfile                  # 后端构建配置
 ├── .env.example               # 环境变量模板
 ├── nginx/                     # Nginx 配置
