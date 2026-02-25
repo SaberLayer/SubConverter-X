@@ -7,6 +7,9 @@
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# 确保脚本自身有执行权限
+[ ! -x "$SCRIPT_DIR/start.sh" ] && chmod +x "$SCRIPT_DIR/start.sh"
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
