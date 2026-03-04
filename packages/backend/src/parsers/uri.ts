@@ -181,6 +181,9 @@ function parseVMess(line: string): ProxyNode | null {
   } else if (transport === 'h2') {
     if (path) node.h2Path = path;
     if (host) node.h2Host = host.split(',').map((s: string) => s.trim());
+  } else if (transport === 'httpupgrade') {
+    if (path) node.wsPath = path;
+    if (host) node.wsHeaders = { Host: host };
   } else if (transport === 'xhttp' || transport === 'splithttp') {
     if (path) node.xhttpPath = path;
     if (host) node.xhttpHost = host;
@@ -320,6 +323,18 @@ function parseTrojan(line: string): ProxyNode | null {
     const host = params.get('host') ?? '';
     if (path) node.h2Path = path;
     if (host) node.h2Host = host.split(',').map((s) => s.trim());
+  } else if (transport === 'httpupgrade') {
+    const path = params.get('path') ?? '';
+    const host = params.get('host') ?? '';
+    if (path) node.wsPath = path;
+    if (host) node.wsHeaders = { Host: host };
+  } else if (transport === 'xhttp' || transport === 'splithttp') {
+    const path = params.get('path') ?? '';
+    const host = params.get('host') ?? '';
+    const mode = params.get('mode') ?? '';
+    if (path) node.xhttpPath = path;
+    if (host) node.xhttpHost = host;
+    if (mode) node.xhttpMode = mode;
   }
 
   return node;

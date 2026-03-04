@@ -6,29 +6,56 @@ import { processNodes } from '../core/processor';
 import { getGenerator } from '../core/generator';
 import { getRule } from '../rules';
 import { TargetFormat } from '../core/types';
+import { resolveNodeDomains } from '../core/resolve-domain';
 
 const router = Router();
 
 const CONTENT_TYPES: Record<string, string> = {
+  'auto': 'text/yaml; charset=utf-8',
+  'clash': 'text/yaml; charset=utf-8',
+  'clashr': 'text/yaml; charset=utf-8',
   'clash-meta': 'text/yaml; charset=utf-8',
+  'egern': 'text/yaml; charset=utf-8',
+  'stash': 'text/yaml; charset=utf-8',
   'singbox': 'application/json; charset=utf-8',
   'surge': 'text/plain; charset=utf-8',
+  'surgemac': 'text/plain; charset=utf-8',
+  'surfboard': 'text/plain; charset=utf-8',
   'quantumultx': 'text/plain; charset=utf-8',
   'shadowrocket': 'text/plain; charset=utf-8',
   'loon': 'text/plain; charset=utf-8',
   'v2ray': 'application/json; charset=utf-8',
+  'v2ray-uri': 'text/plain; charset=utf-8',
+  'mixed': 'text/plain; charset=utf-8',
+  'plain-json': 'application/json; charset=utf-8',
   'base64': 'text/plain; charset=utf-8',
 };
 
+function normalizeList(v: unknown): string[] | undefined {
+  if (!v) return undefined;
+  if (Array.isArray(v)) {
+    const list = v.map((x) => String(x).trim()).filter(Boolean);
+    return list.length ? list : undefined;
+  }
+  if (typeof v === 'string') {
+    const list = v.split(',').map((x) => x.trim()).filter(Boolean);
+    return list.length ? list : undefined;
+  }
+  return undefined;
+}
+
 function fileExt(target: string): string {
-  if (target === 'singbox' || target === 'v2ray') return 'json';
-  if (target === 'clash-meta') return 'yaml';
+  if (target === 'singbox' || target === 'v2ray' || target === 'plain-json') return 'json';
+  if (target === 'auto' || target === 'clash' || target === 'clashr' || target === 'clash-meta' || target === 'egern' || target === 'stash') return 'yaml';
   return 'txt';
 }
 
 function detectTargetFromUA(ua: string): TargetFormat | null {
   const lower = ua.toLowerCase();
   if (lower.includes('clash')) return 'clash-meta';
+  if (lower.includes('egern')) return 'egern';
+  if (lower.includes('stash')) return 'stash';
+  if (lower.includes('surfboard')) return 'surfboard';
   if (lower.includes('sing-box') || lower.includes('singbox')) return 'singbox';
   if (lower.includes('surge')) return 'surge';
   if (lower.includes('quantumult')) return 'quantumultx';
@@ -46,7 +73,15 @@ router.get('/sub', async (req: Request, res: Response) => {
     const ruleTemplate = req.query.rule as string | undefined;
     const include = req.query.include as string | undefined;
     const exclude = req.query.exclude as string | undefined;
+    const includeTypes = normalizeList(req.query.types || req.query.includeTypes);
+    const excludeTypes = normalizeList(req.query.excludeTypes);
+    const includeRegions = normalizeList(req.query.regions || req.query.includeRegions);
+    const excludeRegions = normalizeList(req.query.excludeRegions);
     const rename = req.query.rename as string | undefined;
+    const regexDelete = (req.query.regexDelete || req.query.delete) as string | undefined;
+    const regexSort = req.query.regexSort as string | undefined;
+    const filterUseless = req.query.useless === 'true' || req.query.useless === '1';
+    const resolveDomain = req.query.resolveDomain === 'true' || req.query.resolveDomain === '1';
     const addEmoji = req.query.emoji === 'true' || req.query.emoji === '1';
     const deduplicate = req.query.dedupe === 'true' || req.query.dedupe === '1';
     const sort = (req.query.sort as string | undefined) || 'none';
@@ -59,7 +94,7 @@ router.get('/sub', async (req: Request, res: Response) => {
     }
 
     // Auto-detect target from User-Agent if not specified
-    if (!target) {
+    if (!target || target === 'auto') {
       const detected = detectTargetFromUA(req.get('user-agent') || '');
       target = detected || 'clash-meta';
     }
@@ -79,10 +114,18 @@ router.get('/sub', async (req: Request, res: Response) => {
       return;
     }
 
-    const processed = processNodes(nodes, {
+    const maybeResolved = await resolveNodeDomains(nodes, resolveDomain);
+    const processed = processNodes(maybeResolved, {
       include: include || undefined,
       exclude: exclude || undefined,
+      includeTypes,
+      excludeTypes,
+      includeRegions,
+      excludeRegions,
       rename: rename || undefined,
+      regexDelete: regexDelete || undefined,
+      regexSort: regexSort || undefined,
+      filterUseless,
       addEmoji,
       deduplicate,
       sort: sort as any,
@@ -120,6 +163,8 @@ router.post('/shorten', (req: Request, res: Response) => {
   try {
     const {
       input, target, ruleTemplate, include, exclude, rename,
+      includeTypes, excludeTypes, includeRegions, excludeRegions,
+      regexDelete, regexSort, filterUseless, resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups
     } = req.body as {
       input: string;
@@ -128,6 +173,14 @@ router.post('/shorten', (req: Request, res: Response) => {
       include?: string;
       exclude?: string;
       rename?: string;
+      includeTypes?: string[] | string;
+      excludeTypes?: string[] | string;
+      includeRegions?: string[] | string;
+      excludeRegions?: string[] | string;
+      regexDelete?: string;
+      regexSort?: string;
+      filterUseless?: boolean;
+      resolveDomain?: boolean;
       addEmoji?: boolean;
       deduplicate?: boolean;
       sort?: string;
@@ -144,6 +197,14 @@ router.post('/shorten', (req: Request, res: Response) => {
     const token = crypto.randomBytes(9).toString('base64url');
     saveSubscription(token, {
       input, target, ruleTemplate, include, exclude, rename,
+      includeTypes: normalizeList(includeTypes),
+      excludeTypes: normalizeList(excludeTypes),
+      includeRegions: normalizeList(includeRegions),
+      excludeRegions: normalizeList(excludeRegions),
+      regexDelete,
+      regexSort,
+      filterUseless,
+      resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups
     });
 
@@ -177,12 +238,20 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
     }
 
     const { nodes, subscriptionUserinfo } = await parseInput(sub.input);
+    const maybeResolved = await resolveNodeDomains(nodes, sub.resolveDomain);
 
     // Apply node processing (filter/rename/emoji/dedupe/sort/global settings)
-    const processed = processNodes(nodes, {
+    const processed = processNodes(maybeResolved, {
       include: sub.include,
       exclude: sub.exclude,
+      includeTypes: sub.includeTypes,
+      excludeTypes: sub.excludeTypes,
+      includeRegions: sub.includeRegions,
+      excludeRegions: sub.excludeRegions,
       rename: sub.rename,
+      regexDelete: sub.regexDelete,
+      regexSort: sub.regexSort,
+      filterUseless: sub.filterUseless,
       addEmoji: sub.addEmoji,
       deduplicate: sub.deduplicate,
       sort: sub.sort as any,

@@ -21,7 +21,15 @@ function getDb(): Database.Database {
         rule_template TEXT,
         include_filter TEXT,
         exclude_filter TEXT,
+        include_types TEXT,
+        exclude_types TEXT,
+        include_regions TEXT,
+        exclude_regions TEXT,
         rename_rules TEXT,
+        regex_delete TEXT,
+        regex_sort TEXT,
+        filter_useless INTEGER DEFAULT 0,
+        resolve_domain INTEGER DEFAULT 0,
         add_emoji INTEGER DEFAULT 0,
         deduplicate INTEGER DEFAULT 0,
         sort_mode TEXT DEFAULT 'none',
@@ -37,7 +45,15 @@ function getDb(): Database.Database {
     const colNames = new Set(cols.map((c) => c.name));
     if (!colNames.has('include_filter')) db.exec('ALTER TABLE subscriptions ADD COLUMN include_filter TEXT');
     if (!colNames.has('exclude_filter')) db.exec('ALTER TABLE subscriptions ADD COLUMN exclude_filter TEXT');
+    if (!colNames.has('include_types')) db.exec('ALTER TABLE subscriptions ADD COLUMN include_types TEXT');
+    if (!colNames.has('exclude_types')) db.exec('ALTER TABLE subscriptions ADD COLUMN exclude_types TEXT');
+    if (!colNames.has('include_regions')) db.exec('ALTER TABLE subscriptions ADD COLUMN include_regions TEXT');
+    if (!colNames.has('exclude_regions')) db.exec('ALTER TABLE subscriptions ADD COLUMN exclude_regions TEXT');
     if (!colNames.has('rename_rules')) db.exec('ALTER TABLE subscriptions ADD COLUMN rename_rules TEXT');
+    if (!colNames.has('regex_delete')) db.exec('ALTER TABLE subscriptions ADD COLUMN regex_delete TEXT');
+    if (!colNames.has('regex_sort')) db.exec('ALTER TABLE subscriptions ADD COLUMN regex_sort TEXT');
+    if (!colNames.has('filter_useless')) db.exec('ALTER TABLE subscriptions ADD COLUMN filter_useless INTEGER DEFAULT 0');
+    if (!colNames.has('resolve_domain')) db.exec('ALTER TABLE subscriptions ADD COLUMN resolve_domain INTEGER DEFAULT 0');
     if (!colNames.has('add_emoji')) db.exec('ALTER TABLE subscriptions ADD COLUMN add_emoji INTEGER DEFAULT 0');
     if (!colNames.has('deduplicate')) db.exec('ALTER TABLE subscriptions ADD COLUMN deduplicate INTEGER DEFAULT 0');
     if (!colNames.has('sort_mode')) db.exec('ALTER TABLE subscriptions ADD COLUMN sort_mode TEXT DEFAULT \'none\'');
@@ -57,7 +73,15 @@ export interface SubscriptionOptions {
   ruleTemplate?: string;
   include?: string;
   exclude?: string;
+  includeTypes?: string[];
+  excludeTypes?: string[];
+  includeRegions?: string[];
+  excludeRegions?: string[];
   rename?: string;
+  regexDelete?: string;
+  regexSort?: string;
+  filterUseless?: boolean;
+  resolveDomain?: boolean;
   addEmoji?: boolean;
   deduplicate?: boolean;
   sort?: string;
@@ -69,9 +93,9 @@ export interface SubscriptionOptions {
 export function saveSubscription(token: string, options: SubscriptionOptions): void {
   const stmt = getDb().prepare(
     `INSERT OR REPLACE INTO subscriptions
-    (token, input, target, rule_template, include_filter, exclude_filter, rename_rules,
-     add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, proxy_groups)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    (token, input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
+     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, proxy_groups)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   stmt.run(
     token,
@@ -80,7 +104,15 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
     options.ruleTemplate || null,
     options.include || null,
     options.exclude || null,
+    options.includeTypes?.length ? JSON.stringify(options.includeTypes) : null,
+    options.excludeTypes?.length ? JSON.stringify(options.excludeTypes) : null,
+    options.includeRegions?.length ? JSON.stringify(options.includeRegions) : null,
+    options.excludeRegions?.length ? JSON.stringify(options.excludeRegions) : null,
     options.rename || null,
+    options.regexDelete || null,
+    options.regexSort || null,
+    options.filterUseless ? 1 : 0,
+    options.resolveDomain ? 1 : 0,
     options.addEmoji ? 1 : 0,
     options.deduplicate ? 1 : 0,
     options.sort || 'none',
@@ -114,8 +146,8 @@ startCleanupSchedule();
 
 export function getSubscription(token: string): SubscriptionOptions | null {
   const row = getDb().prepare(
-    `SELECT input, target, rule_template, include_filter, exclude_filter, rename_rules,
-     add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, proxy_groups
+    `SELECT input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
+     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, proxy_groups
      FROM subscriptions WHERE token = ?`
   ).get(token) as any;
 
@@ -127,7 +159,15 @@ export function getSubscription(token: string): SubscriptionOptions | null {
     ruleTemplate: row.rule_template || undefined,
     include: row.include_filter || undefined,
     exclude: row.exclude_filter || undefined,
+    includeTypes: parseJsonArray(row.include_types),
+    excludeTypes: parseJsonArray(row.exclude_types),
+    includeRegions: parseJsonArray(row.include_regions),
+    excludeRegions: parseJsonArray(row.exclude_regions),
     rename: row.rename_rules || undefined,
+    regexDelete: row.regex_delete || undefined,
+    regexSort: row.regex_sort || undefined,
+    filterUseless: row.filter_useless === 1,
+    resolveDomain: row.resolve_domain === 1,
     addEmoji: row.add_emoji === 1,
     deduplicate: row.deduplicate === 1,
     sort: row.sort_mode || 'none',
@@ -135,4 +175,20 @@ export function getSubscription(token: string): SubscriptionOptions | null {
     skipCertVerify: row.skip_cert_verify === null ? undefined : row.skip_cert_verify === 1,
     proxyGroups: row.proxy_groups ? JSON.parse(row.proxy_groups) : undefined,
   };
+}
+
+function parseJsonArray(raw: string | null | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      const list = arr.map((x) => String(x).trim()).filter(Boolean);
+      return list.length ? list : undefined;
+    }
+  } catch {
+    // Backward-compatible fallback for legacy CSV values.
+    const list = String(raw).split(',').map((x) => x.trim()).filter(Boolean);
+    return list.length ? list : undefined;
+  }
+  return undefined;
 }

@@ -114,6 +114,19 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
       if (node.transport === 'grpc' && node.grpcServiceName) {
         p['grpc-opts'] = { 'grpc-service-name': node.grpcServiceName };
       }
+      if (node.transport === 'h2') {
+        const h2Opts: Record<string, unknown> = {};
+        if (node.h2Path) h2Opts.path = node.h2Path;
+        if (node.h2Host) h2Opts.host = node.h2Host;
+        if (Object.keys(h2Opts).length) p['h2-opts'] = h2Opts;
+      }
+      if (node.transport === 'xhttp' || node.transport === 'splithttp') {
+        const xhttpOpts: Record<string, unknown> = {};
+        if (node.xhttpPath) xhttpOpts.path = node.xhttpPath;
+        if (node.xhttpHost) xhttpOpts.host = node.xhttpHost;
+        if (node.xhttpMode) xhttpOpts.mode = node.xhttpMode;
+        if (Object.keys(xhttpOpts).length) p['xhttp-opts'] = xhttpOpts;
+      }
       return p;
     }
     case 'hysteria2': {

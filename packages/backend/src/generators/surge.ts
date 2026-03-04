@@ -1,6 +1,38 @@
 import { Generator, ProxyNode, ProxyProtocol, ProxyGroup, TargetFormat } from '../core/types';
 import { resolveProxyGroups, buildDefaultGroups, ResolvedGroup } from '../core/proxy-group';
 
+function appendWsLike(parts: string[], node: ProxyNode) {
+  const wsPath = node.wsPath || node.xhttpPath;
+  const wsHost = node.wsHeaders?.Host || node.xhttpHost;
+  parts.push(', ws=true');
+  if (wsPath) parts.push(`, ws-path=${wsPath}`);
+  if (wsHost) parts.push(`, ws-headers=Host:${wsHost}`);
+}
+
+function appendTransport(parts: string[], node: ProxyNode) {
+  if (node.transport === 'ws' || node.transport === 'httpupgrade' || node.transport === 'xhttp' || node.transport === 'splithttp') {
+    appendWsLike(parts, node);
+    return;
+  }
+  if (node.transport === 'grpc') {
+    parts.push(', transport=grpc');
+    if (node.grpcServiceName) parts.push(`, service-name=${node.grpcServiceName}`);
+    return;
+  }
+  if (node.transport === 'h2') {
+    parts.push(', transport=h2');
+    if (node.h2Path) parts.push(`, path=${node.h2Path}`);
+    if (node.h2Host?.length) parts.push(`, host=${node.h2Host[0]}`);
+  }
+}
+
+function normalizeGroupMember(member: string): string {
+  const upper = member.toUpperCase();
+  if (upper === 'DIRECT') return 'DIRECT';
+  if (upper === 'REJECT') return 'REJECT';
+  return member;
+}
+
 function buildProxyLine(node: ProxyNode): string {
   const parts: string[] = [node.name, '='];
 
@@ -15,44 +47,80 @@ function buildProxyLine(node: ProxyNode): string {
       }
       break;
     }
+    case 'ssr': {
+      parts.push(`ssr, ${node.server}, ${node.port}, encrypt-method=${node.method}, password=${node.password}`);
+      if (node.ssrProtocol) parts.push(`, protocol=${node.ssrProtocol}`);
+      if (node.ssrProtocolParam) parts.push(`, protocol-param=${node.ssrProtocolParam}`);
+      if (node.ssrObfs) parts.push(`, obfs=${node.ssrObfs}`);
+      if (node.ssrObfsParam) parts.push(`, obfs-param=${node.ssrObfsParam}`);
+      if (node.udp) parts.push(', udp-relay=true');
+      break;
+    }
     case 'vmess': {
       parts.push(`vmess, ${node.server}, ${node.port}, username=${node.uuid}`);
       if (node.tls !== 'none') parts.push(', tls=true');
-      if (node.transport === 'ws') {
-        parts.push(', ws=true');
-        if (node.wsPath) parts.push(`, ws-path=${node.wsPath}`);
-        if (node.wsHeaders?.Host) parts.push(`, ws-headers=Host:${node.wsHeaders.Host}`);
-      }
+      appendTransport(parts, node);
       if ((node.alterId ?? 0) === 0) parts.push(', vmess-aead=true');
       if (node.sni) parts.push(`, sni=${node.sni}`);
       if (node.skipCertVerify) parts.push(', skip-cert-verify=true');
+      if (node.alpn?.length) parts.push(`, alpn=${node.alpn[0]}`);
+      break;
+    }
+    case 'vless': {
+      parts.push(`vless, ${node.server}, ${node.port}, username=${node.uuid}`);
+      if (node.tls !== 'none') parts.push(', tls=true');
+      if (node.flow) parts.push(`, flow=${node.flow}`);
+      appendTransport(parts, node);
+      if (node.sni) parts.push(`, sni=${node.sni}`);
+      if (node.skipCertVerify) parts.push(', skip-cert-verify=true');
+      if (node.alpn?.length) parts.push(`, alpn=${node.alpn[0]}`);
       break;
     }
     case 'trojan': {
       parts.push(`trojan, ${node.server}, ${node.port}, password=${node.password}`);
       if (node.sni) parts.push(`, sni=${node.sni}`);
       if (node.skipCertVerify) parts.push(', skip-cert-verify=true');
-      if (node.transport === 'ws') {
-        parts.push(', ws=true');
-        if (node.wsPath) parts.push(`, ws-path=${node.wsPath}`);
-      }
+      appendTransport(parts, node);
+      if (node.alpn?.length) parts.push(`, alpn=${node.alpn[0]}`);
       break;
     }
     case 'hysteria2': {
       parts.push(`hysteria2, ${node.server}, ${node.port}, password=${node.password}`);
       if (node.sni) parts.push(`, sni=${node.sni}`);
       if (node.skipCertVerify) parts.push(', skip-cert-verify=true');
+      if (node.obfsPassword) {
+        parts.push(', obfs=salamander');
+        parts.push(`, obfs-password=${node.obfsPassword}`);
+      }
+      if (node.alpn?.length) parts.push(`, alpn=${node.alpn[0]}`);
       break;
     }
     case 'tuic': {
       parts.push(`tuic, ${node.server}, ${node.port}, token=${node.uuid}, password=${node.password}`);
       if (node.sni) parts.push(`, sni=${node.sni}`);
       if (node.alpn?.length) parts.push(`, alpn=${node.alpn[0]}`);
+      if (node.congestionControl) parts.push(`, congestion-controller=${node.congestionControl}`);
+      if (node.udpRelayMode) parts.push(`, udp-relay-mode=${node.udpRelayMode}`);
+      if (node.skipCertVerify) parts.push(', skip-cert-verify=true');
       break;
     }
     case 'wireguard': {
       const sectionName = `wg-${node.name.replace(/[^a-zA-Z0-9-]/g, '')}`;
       parts.push(`wireguard, section-name=${sectionName}`);
+      break;
+    }
+    case 'socks': {
+      parts.push(`${node.tls !== 'none' ? 'socks5-tls' : 'socks5'}, ${node.server}, ${node.port}`);
+      if (node.uuid) parts.push(`, username=${node.uuid}`);
+      if (node.password) parts.push(`, password=${node.password}`);
+      break;
+    }
+    case 'http': {
+      parts.push(`${node.tls !== 'none' ? 'https' : 'http'}, ${node.server}, ${node.port}`);
+      if (node.uuid) parts.push(`, username=${node.uuid}`);
+      if (node.password) parts.push(`, password=${node.password}`);
+      if (node.sni) parts.push(`, sni=${node.sni}`);
+      if (node.skipCertVerify) parts.push(', skip-cert-verify=true');
       break;
     }
     default:
@@ -83,7 +151,7 @@ function getDefaultRules(ruleTemplate?: string): string[] {
 
 export const surgeGenerator: Generator = {
   id: 'surge' as TargetFormat,
-  supportedProtocols: ['ss', 'vmess', 'trojan', 'hysteria2', 'tuic', 'wireguard'] as ProxyProtocol[],
+  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'] as ProxyProtocol[],
 
   generate(nodes: ProxyNode[], ruleTemplate?: string, proxyGroups?: ProxyGroup[]): string {
     const filtered = nodes.filter(n => this.supportedProtocols.includes(n.type));
@@ -104,6 +172,7 @@ export const surgeGenerator: Generator = {
     // [Proxy]
     sections.push('[Proxy]');
     sections.push('DIRECT = direct');
+    sections.push('REJECT = reject');
     for (const node of filtered) {
       const line = buildProxyLine(node);
       if (line) sections.push(line);
@@ -123,7 +192,7 @@ export const surgeGenerator: Generator = {
     // [Proxy Group]
     sections.push('[Proxy Group]');
     for (const g of resolved) {
-      const members = [...g.nodeNames, ...g.extraProxies].join(', ');
+      const members = [...g.nodeNames, ...g.extraProxies.map((m) => normalizeGroupMember(m))].join(', ');
       switch (g.type) {
         case 'select':
           sections.push(`${g.name} = select, ${members}`);

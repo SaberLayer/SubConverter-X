@@ -18,6 +18,10 @@ function parseTransport(transport: Record<string, any> | undefined): {
   grpcServiceName?: string;
   h2Path?: string;
   h2Host?: string[];
+  xhttpPath?: string;
+  xhttpHost?: string;
+  xhttpMode?: string;
+  xhttpExtra?: Record<string, any>;
 } {
   if (!transport || !transport.type) {
     return { transport: 'tcp' };
@@ -38,11 +42,37 @@ function parseTransport(transport: Record<string, any> | undefined): {
     case 'http':
       result.transport = 'h2';
       result.h2Path = transport.path;
-      result.h2Host = transport.host;
+      if (Array.isArray(transport.host)) {
+        result.h2Host = transport.host;
+      } else if (typeof transport.host === 'string' && transport.host.trim()) {
+        result.h2Host = [transport.host.trim()];
+      }
       break;
     case 'httpupgrade':
       result.transport = 'httpupgrade' as Transport;
+      result.wsPath = transport.path;
+      result.wsHeaders = transport.headers;
       break;
+    case 'xhttp':
+    case 'splithttp': {
+      result.transport = transport.type as Transport;
+      result.xhttpPath = transport.path;
+      if (typeof transport.host === 'string' && transport.host.trim()) {
+        result.xhttpHost = transport.host.trim();
+      } else if (typeof transport.headers?.Host === 'string' && transport.headers.Host.trim()) {
+        result.xhttpHost = transport.headers.Host.trim();
+      } else if (typeof transport.headers?.host === 'string' && transport.headers.host.trim()) {
+        result.xhttpHost = transport.headers.host.trim();
+      }
+      if (typeof transport.mode === 'string' && transport.mode.trim()) {
+        result.xhttpMode = transport.mode.trim();
+      }
+      const { type, path, host, mode, headers, ...rest } = transport;
+      if (Object.keys(rest).length > 0) {
+        result.xhttpExtra = rest;
+      }
+      break;
+    }
     case 'quic':
       result.transport = 'quic';
       break;
@@ -108,6 +138,10 @@ function parseSingboxOutbound(outbound: Record<string, any>): ProxyNode | null {
     grpcServiceName: transportInfo.grpcServiceName,
     h2Path: transportInfo.h2Path,
     h2Host: transportInfo.h2Host,
+    xhttpPath: transportInfo.xhttpPath,
+    xhttpHost: transportInfo.xhttpHost,
+    xhttpMode: transportInfo.xhttpMode,
+    xhttpExtra: transportInfo.xhttpExtra,
   };
 
   switch (protocol) {

@@ -3,16 +3,32 @@ import { uriParser } from '../parsers/uri';
 import { clashParser } from '../parsers/clash';
 import { singboxParser } from '../parsers/singbox';
 import { base64Parser } from '../parsers/base64';
+import { clientConfigParser } from '../parsers/client-config';
 import { validateUrl } from './url-safety';
 
-const parsers: Parser[] = [uriParser, clashParser, singboxParser, base64Parser];
+const parsers: Parser[] = [uriParser, clashParser, singboxParser, clientConfigParser, base64Parser];
 
 export interface ParseResult {
   nodes: ProxyNode[];
   subscriptionUserinfo?: string;  // upstream subscription-userinfo header
 }
 
-const URL_RE = /^https?:\/\/.+/i;
+function isSubscriptionUrl(raw: string): boolean {
+  if (!/^https?:\/\//i.test(raw)) return false;
+  try {
+    const url = new URL(raw);
+    // Keep proxy-style http(s) URI (host:port#name) out of subscription URL detection.
+    if (url.hash) return false;
+    if (url.username || url.password) return false;
+    if (url.search) return true;
+    if (url.pathname && url.pathname !== '/') return true;
+    // Root URL without explicit port is more likely a subscription endpoint.
+    if (!url.port) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 async function fetchSubscription(url: string, timeout = 15000): Promise<{ body: string; userinfo?: string }> {
   await validateUrl(url);
@@ -59,7 +75,7 @@ export async function parseInput(raw: string): Promise<ParseResult> {
   const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   // Check if any line is a subscription URL
-  const hasUrls = lines.some((l) => URL_RE.test(l));
+  const hasUrls = lines.some((l) => isSubscriptionUrl(l));
 
   if (hasUrls) {
     // Mixed mode: lines can be URLs or node URIs
@@ -67,7 +83,7 @@ export async function parseInput(raw: string): Promise<ParseResult> {
     let userinfo: string | undefined;
 
     for (const line of lines) {
-      if (URL_RE.test(line)) {
+      if (isSubscriptionUrl(line)) {
         try {
           const result = await fetchSubscription(line);
           // Keep the first subscription-userinfo we find

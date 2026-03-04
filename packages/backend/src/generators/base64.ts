@@ -20,15 +20,35 @@ function buildUri(node: ProxyNode): string {
       return `ssr://${safeBase64(`${base}/?${params.join('&')}`)}`;
     }
     case 'vmess': {
+      const vmessHost =
+        node.transport === 'ws' || node.transport === 'httpupgrade'
+          ? (node.wsHeaders?.Host || node.sni || '')
+          : node.transport === 'h2'
+            ? (node.h2Host?.[0] || node.sni || '')
+            : node.transport === 'xhttp' || node.transport === 'splithttp'
+              ? (node.xhttpHost || node.sni || '')
+              : (node.sni || '');
+      const vmessPath =
+        node.transport === 'ws' || node.transport === 'httpupgrade'
+          ? (node.wsPath || '')
+          : node.transport === 'grpc'
+            ? (node.grpcServiceName || '')
+            : node.transport === 'h2'
+              ? (node.h2Path || '')
+              : node.transport === 'xhttp' || node.transport === 'splithttp'
+                ? (node.xhttpPath || '')
+                : '';
       const obj: Record<string, unknown> = {
         v: '2', ps: node.name, add: node.server, port: node.port,
         id: node.uuid, aid: node.alterId ?? 0,
         net: node.transport, type: 'none',
-        host: node.wsHeaders?.Host || node.sni || '',
-        path: node.wsPath || '',
+        host: vmessHost,
+        path: vmessPath,
         tls: node.tls !== 'none' ? 'tls' : '',
       };
       if (node.sni) obj.sni = node.sni;
+      if (node.fingerprint) obj.fp = node.fingerprint;
+      if (node.alpn?.length) obj.alpn = node.alpn.join(',');
       return `vmess://${Buffer.from(JSON.stringify(obj)).toString('base64')}`;
     }
     case 'vless': {
@@ -49,6 +69,10 @@ function buildUri(node: ProxyNode): string {
         if (node.h2Path) params.set('path', node.h2Path);
         if (node.h2Host?.length) params.set('host', node.h2Host[0]);
       }
+      if (node.transport === 'httpupgrade') {
+        if (node.wsPath) params.set('path', node.wsPath);
+        if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
+      }
       if (node.transport === 'xhttp' || node.transport === 'splithttp') {
         if (node.xhttpPath) params.set('path', node.xhttpPath);
         if (node.xhttpHost) params.set('host', node.xhttpHost);
@@ -68,6 +92,18 @@ function buildUri(node: ProxyNode): string {
       if (node.transport === 'ws') {
         if (node.wsPath) params.set('path', node.wsPath);
         if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
+      } else if (node.transport === 'grpc') {
+        if (node.grpcServiceName) params.set('serviceName', node.grpcServiceName);
+      } else if (node.transport === 'h2') {
+        if (node.h2Path) params.set('path', node.h2Path);
+        if (node.h2Host?.length) params.set('host', node.h2Host[0]);
+      } else if (node.transport === 'httpupgrade') {
+        if (node.wsPath) params.set('path', node.wsPath);
+        if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
+      } else if (node.transport === 'xhttp' || node.transport === 'splithttp') {
+        if (node.xhttpPath) params.set('path', node.xhttpPath);
+        if (node.xhttpHost) params.set('host', node.xhttpHost);
+        if (node.xhttpMode) params.set('mode', node.xhttpMode);
       }
       if (node.alpn?.length) params.set('alpn', node.alpn.join(','));
       if (node.skipCertVerify) params.set('allowInsecure', '1');

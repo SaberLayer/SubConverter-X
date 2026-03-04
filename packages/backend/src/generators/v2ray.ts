@@ -20,6 +20,7 @@ function buildStreamSettings(node: ProxyNode): Record<string, unknown> {
     if (node.sni) tlsSettings.serverName = node.sni;
     if (node.fingerprint) tlsSettings.fingerprint = node.fingerprint;
     if (node.alpn) tlsSettings.alpn = node.alpn;
+    if (node.skipCertVerify) tlsSettings.allowInsecure = true;
     stream.tlsSettings = tlsSettings;
   } else {
     stream.security = 'none';
@@ -40,6 +41,23 @@ function buildStreamSettings(node: ProxyNode): Record<string, unknown> {
     if (node.h2Path) httpSettings.path = node.h2Path;
     if (node.h2Host) httpSettings.host = node.h2Host;
     stream.httpSettings = httpSettings;
+  } else if (node.transport === 'quic') {
+    stream.quicSettings = {
+      security: 'none',
+      key: '',
+      header: { type: 'none' },
+    };
+  } else if (node.transport === 'httpupgrade') {
+    const httpupgradeSettings: Record<string, unknown> = {};
+    if (node.wsPath || node.xhttpPath) httpupgradeSettings.path = node.wsPath || node.xhttpPath;
+    if (node.wsHeaders?.Host || node.xhttpHost) httpupgradeSettings.host = node.wsHeaders?.Host || node.xhttpHost;
+    stream.httpupgradeSettings = httpupgradeSettings;
+  } else if (node.transport === 'xhttp' || node.transport === 'splithttp') {
+    const xhttpSettings: Record<string, unknown> = {};
+    if (node.xhttpPath) xhttpSettings.path = node.xhttpPath;
+    if (node.xhttpHost) xhttpSettings.host = node.xhttpHost;
+    if (node.xhttpMode) xhttpSettings.mode = node.xhttpMode;
+    stream.xhttpSettings = xhttpSettings;
   }
 
   return stream;
@@ -111,6 +129,44 @@ function buildOutbound(node: ProxyNode): Record<string, unknown> {
         },
       };
     }
+    case 'socks': {
+      const server: Record<string, unknown> = {
+        address: node.server,
+        port: node.port,
+      };
+      if (node.uuid || node.password) {
+        server.users = [{
+          user: node.uuid || '',
+          pass: node.password || '',
+        }];
+      }
+      return {
+        protocol: 'socks',
+        tag: node.name,
+        settings: {
+          servers: [server],
+        },
+      };
+    }
+    case 'http': {
+      const server: Record<string, unknown> = {
+        address: node.server,
+        port: node.port,
+      };
+      if (node.uuid || node.password) {
+        server.users = [{
+          user: node.uuid || '',
+          pass: node.password || '',
+        }];
+      }
+      return {
+        protocol: 'http',
+        tag: node.name,
+        settings: {
+          servers: [server],
+        },
+      };
+    }
     default:
       return { protocol: 'freedom', tag: node.name };
   }
@@ -118,7 +174,7 @@ function buildOutbound(node: ProxyNode): Record<string, unknown> {
 
 export const v2rayGenerator: Generator = {
   id: 'v2ray' as TargetFormat,
-  supportedProtocols: ['ss', 'vmess', 'vless', 'trojan'] as ProxyProtocol[],
+  supportedProtocols: ['ss', 'vmess', 'vless', 'trojan', 'socks', 'http'] as ProxyProtocol[],
 
   generate(nodes: ProxyNode[], _ruleTemplate?: string): string {
     const filtered = nodes.filter(n => this.supportedProtocols.includes(n.type));

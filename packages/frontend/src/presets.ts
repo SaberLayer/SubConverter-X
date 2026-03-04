@@ -1,4 +1,5 @@
 // Configuration preset management using localStorage
+import type { ProxyGroup } from './api';
 
 export interface ConfigPreset {
   id: string;
@@ -8,6 +9,14 @@ export interface ConfigPreset {
     ruleTemplate: string;
     include: string;
     exclude: string;
+    regexDelete: string;
+    regexSort: string;
+    filterUseless: boolean;
+    resolveDomain: boolean;
+    includeTypes: string;
+    excludeTypes: string;
+    includeRegions: string;
+    excludeRegions: string;
     rename: string;
     addEmoji: boolean;
     deduplicate: boolean;
@@ -15,6 +24,7 @@ export interface ConfigPreset {
     enableUdp?: boolean;
     skipCertVerify?: boolean;
     autoRegionGroup: boolean;
+    proxyGroups?: ProxyGroup[];
   };
   createdAt: number;
 }

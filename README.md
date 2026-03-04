@@ -71,16 +71,16 @@ npm run dev:frontend
 | 协议 | 解析 | Clash Meta | sing-box | Surge | QX | Shadowrocket | Loon | V2Ray | Base64 |
 |------|------|-----------|---------|-------|-----|-------------|------|-------|--------|
 | Shadowsocks | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| ShadowsocksR | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| ShadowsocksR | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
 | VMess | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| VLESS | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✓ |
+| VLESS | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Trojan | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Hysteria | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| Hysteria2 | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| TUIC | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| WireGuard | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| SOCKS5 | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| HTTP/HTTPS | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| Hysteria | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ |
+| Hysteria2 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| TUIC | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| WireGuard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| SOCKS5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| HTTP/HTTPS | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ### 支持的传输协议
 
@@ -100,7 +100,9 @@ npm run dev:frontend
 
 - 标准 URI（`ss://`、`vmess://`、`vless://`、`trojan://` 等），每行一个
 - Clash / Clash Meta YAML 配置
+- Clash / mihomo JSON 配置（`{"proxies":[...]}`）
 - sing-box JSON 配置
+- Quantumult X / Loon / Surge 配置片段（常见 `server_local` / `Proxy` 节）
 - Base64 编码的订阅内容（自动识别并解码）
 - **订阅 URL**：直接输入 `https://` 开头的订阅链接，自动拉取内容
 
@@ -119,9 +121,15 @@ npm run dev:frontend
 - **节点排序**：
   - 按名称排序
   - 按地区分组排序
+  - 按正则优先级排序（`regexSort`）
 - **节点筛选**：
   - 包含过滤（正则表达式）
   - 排除过滤（正则表达式）
+  - 正则批量删除（`regexDelete`）
+  - 协议类型筛选（`includeTypes` / `excludeTypes`）
+  - 地区筛选（`includeRegions` / `excludeRegions`）
+  - 无效节点过滤（`filterUseless`）
+  - 域名解析为 IP（`resolveDomain`）
   - 批量重命名（支持正则替换）
 
 ### 🌍 代理组管理
@@ -156,6 +164,14 @@ Content-Type: application/json
   // 节点筛选
   "include": "香港|HK|Hong Kong",     // 可选，包含过滤（正则）
   "exclude": "过期|到期",              // 可选，排除过滤（正则）
+  "regexDelete": "测试|流量|套餐",      // 可选，正则删除（按 | 分隔）
+  "regexSort": "HK|JP|SG|US",          // 可选，正则优先级排序（按 | 分隔）
+  "filterUseless": true,               // 可选，过滤缺少关键字段的无效节点
+  "resolveDomain": true,               // 可选，域名节点先解析为 IP
+  "includeTypes": ["vmess", "vless"], // 可选，只保留指定协议类型
+  "excludeTypes": ["ssr"],            // 可选，排除指定协议类型
+  "includeRegions": ["HK", "JP"],     // 可选，只保留指定地区（按节点名识别）
+  "excludeRegions": ["CN"],           // 可选，排除指定地区
   "rename": "\\s*\\[.*?\\]@|官网.*$@", // 可选，重命名规则
 
   // 节点处理
@@ -228,7 +244,15 @@ GET /api/sub?url=https://订阅链接&target=clash-meta&rule=bypass-cn&emoji=tru
 - `rule`: 规则模板 ID
 - `include`: 包含过滤（正则）
 - `exclude`: 排除过滤（正则）
+- `regexDelete`: 正则删除（按 `|` 分隔）
+- `regexSort`: 正则优先级排序（按 `|` 分隔）
+- `types`: 仅保留指定协议类型（逗号分隔，如 `vmess,vless`）
+- `excludeTypes`: 排除指定协议类型（逗号分隔）
+- `regions`: 仅保留指定地区（逗号分隔，如 `HK,JP,SG`）
+- `excludeRegions`: 排除指定地区（逗号分隔）
 - `rename`: 重命名规则
+- `useless`: 过滤无效节点（`true`/`1` 启用）
+- `resolveDomain`: 域名解析为 IP（`true`/`1` 启用）
 - `emoji`: 添加 emoji（`true`/`1` 启用）
 - `dedupe`: 节点去重（`true`/`1` 启用）
 - `sort`: 排序方式（`none`/`name`/`region`）
@@ -280,14 +304,24 @@ GET /api/convert/rules     # 获取可用的规则模板列表
 
 | ID | 客户端 |
 |----|--------|
+| `auto` | 自动（订阅按 User-Agent 识别） |
+| `clash` | Clash（兼容输出） |
+| `clashr` | ClashR（兼容输出） |
 | `clash-meta` | Clash Meta / mihomo |
+| `stash` | Stash |
 | `singbox` | sing-box |
 | `surge` | Surge 5 |
+| `surgemac` | Surge Mac（兼容输出） |
+| `egern` | Egern |
+| `surfboard` | Surfboard |
 | `quantumultx` | Quantumult X |
 | `shadowrocket` | Shadowrocket |
 | `loon` | Loon |
 | `v2ray` | V2Ray / Xray |
+| `v2ray-uri` | V2Ray URI（明文链接） |
+| `mixed` | Mixed URI（明文聚合） |
 | `base64` | 通用 Base64 URI 订阅 |
+| `plain-json` | 通用 JSON（统一节点模型） |
 
 ## 项目结构
 

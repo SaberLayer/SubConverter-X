@@ -4,6 +4,14 @@ import { useTranslation } from 'react-i18next';
 interface Props {
   include: string;
   exclude: string;
+  regexDelete: string;
+  regexSort: string;
+  filterUseless: boolean;
+  resolveDomain: boolean;
+  includeTypes: string;
+  excludeTypes: string;
+  includeRegions: string;
+  excludeRegions: string;
   rename: string;
   addEmoji: boolean;
   deduplicate: boolean;
@@ -13,6 +21,14 @@ interface Props {
   autoRegionGroup: boolean;
   onIncludeChange: (v: string) => void;
   onExcludeChange: (v: string) => void;
+  onRegexDeleteChange: (v: string) => void;
+  onRegexSortChange: (v: string) => void;
+  onFilterUselessChange: (v: boolean) => void;
+  onResolveDomainChange: (v: boolean) => void;
+  onIncludeTypesChange: (v: string) => void;
+  onExcludeTypesChange: (v: string) => void;
+  onIncludeRegionsChange: (v: string) => void;
+  onExcludeRegionsChange: (v: string) => void;
   onRenameChange: (v: string) => void;
   onAddEmojiChange: (v: boolean) => void;
   onDeduplicateChange: (v: boolean) => void;
@@ -23,9 +39,11 @@ interface Props {
 }
 
 export default function AdvancedOptions({
-  include, exclude, rename, addEmoji, deduplicate, sort,
+  include, exclude, regexDelete, regexSort, filterUseless, resolveDomain,
+  includeTypes, excludeTypes, includeRegions, excludeRegions, rename, addEmoji, deduplicate, sort,
   enableUdp, skipCertVerify, autoRegionGroup,
-  onIncludeChange, onExcludeChange, onRenameChange,
+  onIncludeChange, onExcludeChange, onRegexDeleteChange, onRegexSortChange, onFilterUselessChange, onResolveDomainChange,
+  onIncludeTypesChange, onExcludeTypesChange, onIncludeRegionsChange, onExcludeRegionsChange, onRenameChange,
   onAddEmojiChange, onDeduplicateChange, onSortChange,
   onEnableUdpChange, onSkipCertVerifyChange, onAutoRegionGroupChange
 }: Props) {
@@ -71,6 +89,96 @@ export default function AdvancedOptions({
                 value={exclude}
                 onChange={(e) => onExcludeChange(e.target.value)}
                 placeholder={t('advanced.nodeFilterPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.regexDelete')}
+              </label>
+              <input
+                type="text"
+                value={regexDelete}
+                onChange={(e) => onRegexDeleteChange(e.target.value)}
+                placeholder={t('advanced.regexDeletePlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.regexSort')}
+              </label>
+              <input
+                type="text"
+                value={regexSort}
+                onChange={(e) => onRegexSortChange(e.target.value)}
+                placeholder={t('advanced.regexSortPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filterUseless}
+                onChange={(e) => onFilterUselessChange(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('advanced.filterUseless')}</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={resolveDomain}
+                onChange={(e) => onResolveDomainChange(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('advanced.resolveDomain')}</span>
+            </label>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.includeTypes')}
+              </label>
+              <input
+                type="text"
+                value={includeTypes}
+                onChange={(e) => onIncludeTypesChange(e.target.value)}
+                placeholder={t('advanced.typeFilterPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.excludeTypes')}
+              </label>
+              <input
+                type="text"
+                value={excludeTypes}
+                onChange={(e) => onExcludeTypesChange(e.target.value)}
+                placeholder={t('advanced.typeFilterPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.includeRegions')}
+              </label>
+              <input
+                type="text"
+                value={includeRegions}
+                onChange={(e) => onIncludeRegionsChange(e.target.value)}
+                placeholder={t('advanced.regionFilterPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.excludeRegions')}
+              </label>
+              <input
+                type="text"
+                value={excludeRegions}
+                onChange={(e) => onExcludeRegionsChange(e.target.value)}
+                placeholder={t('advanced.regionFilterPlaceholder')}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

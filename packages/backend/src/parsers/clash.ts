@@ -1,5 +1,6 @@
 import { Parser, ProxyNode, TlsType, Transport } from '../core/types';
 import * as yaml from 'js-yaml';
+import JSON5 from 'json5';
 
 function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
   const type = proxy.type as string;
@@ -61,6 +62,12 @@ function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
         node.h2Host = proxy['h2-opts'].host;
         node.transport = 'h2';
       }
+      if (proxy['xhttp-opts']) {
+        node.xhttpPath = proxy['xhttp-opts'].path;
+        node.xhttpHost = proxy['xhttp-opts'].host;
+        node.xhttpMode = proxy['xhttp-opts'].mode;
+        node.xhttpExtra = proxy['xhttp-opts'].extra;
+      }
       break;
     }
 
@@ -90,6 +97,12 @@ function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
         node.h2Host = proxy['h2-opts'].host;
         node.transport = 'h2';
       }
+      if (proxy['xhttp-opts']) {
+        node.xhttpPath = proxy['xhttp-opts'].path;
+        node.xhttpHost = proxy['xhttp-opts'].host;
+        node.xhttpMode = proxy['xhttp-opts'].mode;
+        node.xhttpExtra = proxy['xhttp-opts'].extra;
+      }
 
       if (proxy['reality-opts']) {
         node.tls = 'reality';
@@ -117,6 +130,17 @@ function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
       }
       if (proxy['grpc-opts']) {
         node.grpcServiceName = proxy['grpc-opts']['grpc-service-name'];
+      }
+      if (proxy['h2-opts']) {
+        node.h2Path = proxy['h2-opts'].path;
+        node.h2Host = proxy['h2-opts'].host;
+        node.transport = 'h2';
+      }
+      if (proxy['xhttp-opts']) {
+        node.xhttpPath = proxy['xhttp-opts'].path;
+        node.xhttpHost = proxy['xhttp-opts'].host;
+        node.xhttpMode = proxy['xhttp-opts'].mode;
+        node.xhttpExtra = proxy['xhttp-opts'].extra;
       }
       break;
     }
@@ -173,11 +197,39 @@ function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
 
 export const clashParser: Parser = {
   canParse(input: string): boolean {
-    return /^proxies:/m.test(input);
+    if (/^proxies:/m.test(input)) return true;
+    const trimmed = input.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return false;
+    try {
+      const doc = JSON.parse(trimmed);
+      return !!doc && Array.isArray((doc as Record<string, any>).proxies);
+    } catch {
+      try {
+        const doc = JSON5.parse(trimmed) as Record<string, any>;
+        return !!doc && Array.isArray(doc.proxies);
+      } catch {
+        return false;
+      }
+    }
   },
 
   parse(input: string): ProxyNode[] {
-    const doc = yaml.load(input) as Record<string, any>;
+    let doc: Record<string, any> | null = null;
+    const trimmed = input.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        doc = JSON.parse(trimmed) as Record<string, any>;
+      } catch {
+        try {
+          doc = JSON5.parse(trimmed) as Record<string, any>;
+        } catch {
+          // Fallback to YAML loader for YAML-like content.
+        }
+      }
+    }
+    if (!doc) {
+      doc = yaml.load(input) as Record<string, any>;
+    }
     if (!doc || !Array.isArray(doc.proxies)) {
       return [];
     }

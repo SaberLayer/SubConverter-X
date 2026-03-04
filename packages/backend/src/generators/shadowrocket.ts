@@ -20,15 +20,35 @@ function buildUri(node: ProxyNode): string {
       return `ssr://${safeBase64(`${base}/?${params.join('&')}`)}`;
     }
     case 'vmess': {
+      const vmessHost =
+        node.transport === 'ws' || node.transport === 'httpupgrade'
+          ? (node.wsHeaders?.Host || node.sni || '')
+          : node.transport === 'h2'
+            ? (node.h2Host?.[0] || node.sni || '')
+            : node.transport === 'xhttp' || node.transport === 'splithttp'
+              ? (node.xhttpHost || node.sni || '')
+              : (node.sni || '');
+      const vmessPath =
+        node.transport === 'ws' || node.transport === 'httpupgrade'
+          ? (node.wsPath || '')
+          : node.transport === 'grpc'
+            ? (node.grpcServiceName || '')
+            : node.transport === 'h2'
+              ? (node.h2Path || '')
+              : node.transport === 'xhttp' || node.transport === 'splithttp'
+                ? (node.xhttpPath || '')
+                : '';
       const obj: Record<string, unknown> = {
         v: '2', ps: node.name, add: node.server, port: node.port,
         id: node.uuid, aid: node.alterId ?? 0,
         net: node.transport, type: 'none',
-        host: node.wsHeaders?.Host || node.sni || '',
-        path: node.wsPath || '',
+        host: vmessHost,
+        path: vmessPath,
         tls: node.tls !== 'none' ? 'tls' : '',
       };
       if (node.sni) obj.sni = node.sni;
+      if (node.fingerprint) obj.fp = node.fingerprint;
+      if (node.alpn?.length) obj.alpn = node.alpn.join(',');
       return `vmess://${Buffer.from(JSON.stringify(obj)).toString('base64')}`;
     }
     case 'vless': {
@@ -49,6 +69,15 @@ function buildUri(node: ProxyNode): string {
         if (node.h2Path) params.set('path', node.h2Path);
         if (node.h2Host?.length) params.set('host', node.h2Host[0]);
       }
+      if (node.transport === 'httpupgrade') {
+        if (node.wsPath) params.set('path', node.wsPath);
+        if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
+      }
+      if (node.transport === 'xhttp' || node.transport === 'splithttp') {
+        if (node.xhttpPath) params.set('path', node.xhttpPath);
+        if (node.xhttpHost) params.set('host', node.xhttpHost);
+        if (node.xhttpMode) params.set('mode', node.xhttpMode);
+      }
       if (node.tls === 'reality') {
         if (node.realityPublicKey) params.set('pbk', node.realityPublicKey);
         if (node.realityShortId) params.set('sid', node.realityShortId);
@@ -63,6 +92,18 @@ function buildUri(node: ProxyNode): string {
       if (node.transport === 'ws') {
         if (node.wsPath) params.set('path', node.wsPath);
         if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
+      } else if (node.transport === 'grpc') {
+        if (node.grpcServiceName) params.set('serviceName', node.grpcServiceName);
+      } else if (node.transport === 'h2') {
+        if (node.h2Path) params.set('path', node.h2Path);
+        if (node.h2Host?.length) params.set('host', node.h2Host[0]);
+      } else if (node.transport === 'httpupgrade') {
+        if (node.wsPath) params.set('path', node.wsPath);
+        if (node.wsHeaders?.Host) params.set('host', node.wsHeaders.Host);
+      } else if (node.transport === 'xhttp' || node.transport === 'splithttp') {
+        if (node.xhttpPath) params.set('path', node.xhttpPath);
+        if (node.xhttpHost) params.set('host', node.xhttpHost);
+        if (node.xhttpMode) params.set('mode', node.xhttpMode);
       }
       if (node.alpn?.length) params.set('alpn', node.alpn.join(','));
       if (node.skipCertVerify) params.set('allowInsecure', '1');
@@ -78,6 +119,43 @@ function buildUri(node: ProxyNode): string {
       }
       return `hysteria2://${node.password}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
     }
+    case 'hysteria': {
+      const params = new URLSearchParams();
+      if (node.password) params.set('auth', node.password);
+      if (node.upMbps) params.set('upmbps', String(node.upMbps));
+      if (node.downMbps) params.set('downmbps', String(node.downMbps));
+      if (node.obfs) params.set('obfs', node.obfs);
+      if (node.obfsPassword) params.set('obfsParam', node.obfsPassword);
+      if (node.sni) params.set('peer', node.sni);
+      if (node.skipCertVerify) params.set('insecure', '1');
+      if (node.alpn?.length) params.set('alpn', node.alpn.join(','));
+      return `hysteria://${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
+    }
+    case 'tuic': {
+      const params = new URLSearchParams();
+      if (node.congestionControl) params.set('congestion_control', node.congestionControl);
+      if (node.udpRelayMode) params.set('udp_relay_mode', node.udpRelayMode);
+      if (node.sni) params.set('sni', node.sni);
+      if (node.alpn?.length) params.set('alpn', node.alpn.join(','));
+      return `tuic://${node.uuid || ''}:${node.password || ''}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
+    }
+    case 'wireguard': {
+      const params = new URLSearchParams();
+      if (node.publicKey) params.set('publickey', node.publicKey);
+      if (node.preSharedKey) params.set('presharedkey', node.preSharedKey);
+      if (node.mtu) params.set('mtu', String(node.mtu));
+      if (node.reservedBytes?.length) params.set('reserved', node.reservedBytes.join(','));
+      return `wireguard://${node.privateKey || ''}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
+    }
+    case 'socks': {
+      const auth = node.uuid ? `${encodeURIComponent(node.uuid)}${node.password ? `:${encodeURIComponent(node.password)}` : ''}@` : '';
+      return `socks5://${auth}${node.server}:${node.port}#${encodeURIComponent(node.name)}`;
+    }
+    case 'http': {
+      const auth = node.uuid ? `${encodeURIComponent(node.uuid)}${node.password ? `:${encodeURIComponent(node.password)}` : ''}@` : '';
+      const scheme = node.tls !== 'none' ? 'https' : 'http';
+      return `${scheme}://${auth}${node.server}:${node.port}#${encodeURIComponent(node.name)}`;
+    }
     default:
       return '';
   }
@@ -85,7 +163,7 @@ function buildUri(node: ProxyNode): string {
 
 export const shadowrocketGenerator: Generator = {
   id: 'shadowrocket' as TargetFormat,
-  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria2'] as ProxyProtocol[],
+  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'] as ProxyProtocol[],
 
   generate(nodes: ProxyNode[], _ruleTemplate?: string): string {
     const filtered = nodes.filter(n => this.supportedProtocols.includes(n.type));

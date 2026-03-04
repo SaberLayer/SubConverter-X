@@ -4,6 +4,7 @@ import InputArea from './components/InputArea';
 import FormatSelector from './components/FormatSelector';
 import RuleSelector from './components/RuleSelector';
 import AdvancedOptions from './components/AdvancedOptions';
+import ProxyGroupEditor from './components/ProxyGroupEditor';
 import PresetManager from './components/PresetManager';
 import Preview from './components/Preview';
 import ThemeToggle from './components/ThemeToggle';
@@ -18,6 +19,14 @@ export default function App() {
   const [ruleTemplate, setRuleTemplate] = useState('bypass-cn');
   const [include, setInclude] = useState('');
   const [exclude, setExclude] = useState('');
+  const [regexDelete, setRegexDelete] = useState('');
+  const [regexSort, setRegexSort] = useState('');
+  const [filterUseless, setFilterUseless] = useState(false);
+  const [resolveDomain, setResolveDomain] = useState(false);
+  const [includeTypes, setIncludeTypes] = useState('');
+  const [excludeTypes, setExcludeTypes] = useState('');
+  const [includeRegions, setIncludeRegions] = useState('');
+  const [excludeRegions, setExcludeRegions] = useState('');
   const [rename, setRename] = useState('');
   const [addEmoji, setAddEmoji] = useState(true);
   const [deduplicate, setDeduplicate] = useState(true);
@@ -32,8 +41,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   const currentConfig = {
-    target, ruleTemplate, include, exclude, rename,
-    addEmoji, deduplicate, sort, autoRegionGroup,
+    target, ruleTemplate, include, exclude, regexDelete, regexSort, filterUseless, resolveDomain,
+    includeTypes, excludeTypes, includeRegions, excludeRegions, rename,
+    addEmoji, deduplicate, sort, autoRegionGroup, proxyGroups,
     ...(enableUdp !== undefined && { enableUdp }),
     ...(skipCertVerify !== undefined && { skipCertVerify }),
   };
@@ -41,21 +51,39 @@ export default function App() {
   const loadPreset = (config: any) => {
     setTarget(config.target);
     setRuleTemplate(config.ruleTemplate);
-    setInclude(config.include);
-    setExclude(config.exclude);
-    setRename(config.rename);
-    setAddEmoji(config.addEmoji);
-    setDeduplicate(config.deduplicate);
-    setSort(config.sort);
+    setInclude(config.include || '');
+    setExclude(config.exclude || '');
+    setRegexDelete(config.regexDelete || '');
+    setRegexSort(config.regexSort || '');
+    setFilterUseless(config.filterUseless ?? false);
+    setResolveDomain(config.resolveDomain ?? false);
+    setIncludeTypes(config.includeTypes || '');
+    setExcludeTypes(config.excludeTypes || '');
+    setIncludeRegions(config.includeRegions || '');
+    setExcludeRegions(config.excludeRegions || '');
+    setRename(config.rename || '');
+    setAddEmoji(config.addEmoji ?? true);
+    setDeduplicate(config.deduplicate ?? true);
+    setSort(config.sort || 'none');
     setEnableUdp(config.enableUdp);
     setSkipCertVerify(config.skipCertVerify);
-    setAutoRegionGroup(config.autoRegionGroup);
+    setAutoRegionGroup(config.autoRegionGroup ?? false);
+    setProxyGroups(Array.isArray(config.proxyGroups) ? config.proxyGroups : []);
   };
 
   const buildRequest = () => {
+    const splitCsv = (raw: string): string[] => raw.split(',').map((x) => x.trim()).filter(Boolean);
     const req: any = { input, target, ruleTemplate };
     if (include.trim()) req.include = include.trim();
     if (exclude.trim()) req.exclude = exclude.trim();
+    if (regexDelete.trim()) req.regexDelete = regexDelete.trim();
+    if (regexSort.trim()) req.regexSort = regexSort.trim();
+    if (filterUseless) req.filterUseless = true;
+    if (resolveDomain) req.resolveDomain = true;
+    if (includeTypes.trim()) req.includeTypes = splitCsv(includeTypes);
+    if (excludeTypes.trim()) req.excludeTypes = splitCsv(excludeTypes);
+    if (includeRegions.trim()) req.includeRegions = splitCsv(includeRegions);
+    if (excludeRegions.trim()) req.excludeRegions = splitCsv(excludeRegions);
     if (rename.trim()) req.rename = rename.trim();
     req.addEmoji = addEmoji;
     req.deduplicate = deduplicate;
@@ -118,15 +146,31 @@ export default function App() {
         </div>
 
         <AdvancedOptions
-          include={include} exclude={exclude} rename={rename}
+          include={include} exclude={exclude}
+          regexDelete={regexDelete} regexSort={regexSort}
+          filterUseless={filterUseless} resolveDomain={resolveDomain}
+          includeTypes={includeTypes} excludeTypes={excludeTypes}
+          includeRegions={includeRegions} excludeRegions={excludeRegions}
+          rename={rename}
           addEmoji={addEmoji} deduplicate={deduplicate} sort={sort}
           enableUdp={enableUdp} skipCertVerify={skipCertVerify}
           autoRegionGroup={autoRegionGroup}
-          onIncludeChange={setInclude} onExcludeChange={setExclude} onRenameChange={setRename}
+          onIncludeChange={setInclude} onExcludeChange={setExclude}
+          onRegexDeleteChange={setRegexDelete} onRegexSortChange={setRegexSort}
+          onFilterUselessChange={setFilterUseless} onResolveDomainChange={setResolveDomain}
+          onIncludeTypesChange={setIncludeTypes} onExcludeTypesChange={setExcludeTypes}
+          onIncludeRegionsChange={setIncludeRegions} onExcludeRegionsChange={setExcludeRegions}
+          onRenameChange={setRename}
           onAddEmojiChange={setAddEmoji} onDeduplicateChange={setDeduplicate}
           onSortChange={setSort} onEnableUdpChange={setEnableUdp}
           onSkipCertVerifyChange={setSkipCertVerify}
           onAutoRegionGroupChange={setAutoRegionGroup}
+        />
+
+        <ProxyGroupEditor
+          groups={proxyGroups}
+          disabled={autoRegionGroup}
+          onChange={setProxyGroups}
         />
 
         <PresetManager currentConfig={currentConfig} onLoadPreset={loadPreset} />

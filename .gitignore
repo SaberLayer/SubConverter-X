@@ -48,6 +48,7 @@ coverage/
 tmp/
 temp/
 *.tmp
+PROJECT_GAP_ANALYSIS.md
 
 # SSL certificates
 nginx/ssl/*.pem

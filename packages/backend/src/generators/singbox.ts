@@ -1,6 +1,13 @@
 import { Generator, ProxyNode, ProxyProtocol, ProxyGroup, TargetFormat } from '../core/types';
 import { resolveProxyGroups, buildDefaultGroups, ResolvedGroup } from '../core/proxy-group';
 
+function normalizeSpecialOutboundTag(name: string): string {
+  const upper = name.toUpperCase();
+  if (upper === 'DIRECT') return 'direct';
+  if (upper === 'REJECT') return 'block';
+  return name;
+}
+
 function buildTransport(node: ProxyNode): Record<string, unknown> | undefined {
   switch (node.transport) {
     case 'ws': {
@@ -160,24 +167,6 @@ function buildOutbound(node: ProxyNode): Record<string, unknown> {
       if (tls) o.tls = tls;
       return o;
     }
-    case 'socks': {
-      const o: Record<string, unknown> = {
-        ...base, type: 'socks', version: '5',
-      };
-      if (node.uuid) o.username = node.uuid;
-      if (node.password) o.password = node.password;
-      return o;
-    }
-    case 'http': {
-      const o: Record<string, unknown> = {
-        ...base, type: 'http',
-      };
-      if (node.uuid) o.username = node.uuid;
-      if (node.password) o.password = node.password;
-      const tls = buildTls(node);
-      if (tls) o.tls = tls;
-      return o;
-    }
     default:
       return base;
   }
@@ -196,24 +185,27 @@ export const singboxGenerator: Generator = {
       ? resolveProxyGroups(proxyGroups, tags)
       : buildDefaultGroups(tags);
 
+    const finalTag = resolved[0]?.name || 'direct';
+
     const selectorGroups = resolved.map((g) => {
       const base: Record<string, unknown> = { tag: g.name };
+      const outbounds = [...g.nodeNames, ...g.extraProxies.map((p) => normalizeSpecialOutboundTag(p))];
       switch (g.type) {
         case 'select':
           base.type = 'selector';
-          base.outbounds = [...g.nodeNames, ...g.extraProxies.map(p => p === 'DIRECT' ? 'direct' : p)];
+          base.outbounds = outbounds;
           break;
         case 'url-test':
         case 'fallback':
           base.type = 'urltest';
-          base.outbounds = [...g.nodeNames];
+          base.outbounds = outbounds;
           base.url = g.url;
           base.interval = g.interval + 's';
           break;
         case 'load-balance':
           // sing-box doesn't have native load-balance, use urltest as fallback
           base.type = 'urltest';
-          base.outbounds = [...g.nodeNames];
+          base.outbounds = outbounds;
           base.url = g.url;
           base.interval = g.interval + 's';
           break;
@@ -242,7 +234,7 @@ export const singboxGenerator: Generator = {
       ],
       route: {
         auto_detect_interface: true,
-        final: 'proxy',
+        final: finalTag,
         rules: [
           { protocol: 'dns', outbound: 'dns-out' },
           { geoip: ['private'], outbound: 'direct' },

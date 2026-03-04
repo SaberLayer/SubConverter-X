@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:regression": "tsx src/tests/regression.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
     "express": "^4.21.0",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "json5": "^2.2.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

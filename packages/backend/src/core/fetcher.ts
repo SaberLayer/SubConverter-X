@@ -49,7 +49,17 @@ export async function fetchSubscription(url: string): Promise<string> {
  */
 export function isUrl(input: string): boolean {
   const trimmed = input.trim();
-  return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
+  try {
+    const url = new URL(trimmed);
+    if (url.hash) return false;
+    if (url.username || url.password) return false;
+    if (url.search) return true;
+    if (url.pathname && url.pathname !== '/') return true;
+    return !url.port;
+  } catch {
+    return false;
+  }
 }
 
 /**

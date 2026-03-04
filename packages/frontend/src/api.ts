@@ -15,6 +15,14 @@ export interface ConvertRequest {
   ruleTemplate?: string;
   include?: string;
   exclude?: string;
+  regexDelete?: string;
+  regexSort?: string;
+  filterUseless?: boolean;
+  resolveDomain?: boolean;
+  includeTypes?: string[];
+  excludeTypes?: string[];
+  includeRegions?: string[];
+  excludeRegions?: string[];
   rename?: string;
   addEmoji?: boolean;
   deduplicate?: boolean;

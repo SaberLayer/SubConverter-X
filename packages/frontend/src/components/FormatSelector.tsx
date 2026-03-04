@@ -1,13 +1,23 @@
 import { useTranslation } from 'react-i18next';
 
 const formats = [
+  { id: 'auto', label: 'Auto (UA Detect)' },
+  { id: 'clash', label: 'Clash' },
+  { id: 'clashr', label: 'ClashR' },
   { id: 'clash-meta', label: 'Clash Meta / mihomo' },
+  { id: 'stash', label: 'Stash' },
   { id: 'singbox', label: 'sing-box' },
   { id: 'surge', label: 'Surge 5' },
+  { id: 'surgemac', label: 'Surge Mac' },
+  { id: 'egern', label: 'Egern' },
+  { id: 'surfboard', label: 'Surfboard' },
   { id: 'quantumultx', label: 'Quantumult X' },
   { id: 'shadowrocket', label: 'Shadowrocket' },
   { id: 'loon', label: 'Loon' },
   { id: 'v2ray', label: 'V2Ray / Xray' },
+  { id: 'v2ray-uri', label: 'V2Ray URI' },
+  { id: 'mixed', label: 'Mixed URI' },
+  { id: 'plain-json', label: 'Plain JSON' },
   { id: 'base64', label: 'Base64 URI' },
 ];
 

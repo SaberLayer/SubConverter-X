@@ -1,7 +1,25 @@
 export type ProxyProtocol = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'hysteria' | 'hysteria2' | 'tuic' | 'wireguard' | 'socks' | 'http';
 export type TlsType = 'none' | 'tls' | 'reality';
 export type Transport = 'tcp' | 'ws' | 'grpc' | 'h2' | 'quic' | 'httpupgrade' | 'xhttp' | 'splithttp';
-export type TargetFormat = 'clash-meta' | 'singbox' | 'surge' | 'quantumultx' | 'shadowrocket' | 'loon' | 'v2ray' | 'base64';
+export type TargetFormat =
+  | 'auto'
+  | 'clash'
+  | 'clashr'
+  | 'clash-meta'
+  | 'singbox'
+  | 'surge'
+  | 'surgemac'
+  | 'egern'
+  | 'stash'
+  | 'surfboard'
+  | 'quantumultx'
+  | 'shadowrocket'
+  | 'loon'
+  | 'v2ray'
+  | 'v2ray-uri'
+  | 'mixed'
+  | 'base64'
+  | 'plain-json';
 export type ProxyGroupType = 'select' | 'url-test' | 'fallback' | 'load-balance';
 
 export interface ProxyGroup {

@@ -32,6 +32,9 @@ jobs:
     - name: Build frontend
       run: npm run build --workspace=packages/frontend
 
+    - name: Regression tests
+      run: npm run test:regression --workspace=packages/backend
+
     - name: Type check
       run: |
         cd packages/backend && npx tsc --noEmit

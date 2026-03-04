@@ -6,13 +6,29 @@ import { getAllRules, getRule } from '../rules';
 import { TargetFormat } from '../core/types';
 import { processInput as fetchInput } from '../core/fetcher';
 import { generateRegionGroups } from '../core/region-groups';
+import { resolveNodeDomains } from '../core/resolve-domain';
 
 const router = Router();
+
+function normalizeList(v: unknown): string[] | undefined {
+  if (!v) return undefined;
+  if (Array.isArray(v)) {
+    const list = v.map((x) => String(x).trim()).filter(Boolean);
+    return list.length ? list : undefined;
+  }
+  if (typeof v === 'string') {
+    const list = v.split(',').map((x) => x.trim()).filter(Boolean);
+    return list.length ? list : undefined;
+  }
+  return undefined;
+}
 
 router.post('/', async (req: Request, res: Response) => {
   try {
     const {
       input, target, ruleTemplate, include, exclude, rename,
+      includeTypes, excludeTypes, includeRegions, excludeRegions,
+      regexDelete, regexSort, filterUseless, resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup
     } = req.body as {
       input: string;
@@ -21,6 +37,14 @@ router.post('/', async (req: Request, res: Response) => {
       include?: string;
       exclude?: string;
       rename?: string;
+      includeTypes?: string[] | string;
+      excludeTypes?: string[] | string;
+      includeRegions?: string[] | string;
+      excludeRegions?: string[] | string;
+      regexDelete?: string;
+      regexSort?: string;
+      filterUseless?: boolean;
+      resolveDomain?: boolean;
       addEmoji?: boolean;
       deduplicate?: boolean;
       sort?: 'none' | 'name' | 'region';
@@ -35,9 +59,10 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const generator = getGenerator(target);
+    const finalTarget: TargetFormat = target === 'auto' ? 'clash-meta' : target;
+    const generator = getGenerator(finalTarget);
     if (!generator) {
-      res.status(400).json({ error: `Unsupported target format: ${target}`, supported: getAllFormats() });
+      res.status(400).json({ error: `Unsupported target format: ${finalTarget}`, supported: getAllFormats() });
       return;
     }
 
@@ -53,13 +78,21 @@ router.post('/', async (req: Request, res: Response) => {
     const processOpts: ProcessOptions = {};
     if (include) processOpts.include = include;
     if (exclude) processOpts.exclude = exclude;
+    processOpts.includeTypes = normalizeList(includeTypes);
+    processOpts.excludeTypes = normalizeList(excludeTypes);
+    processOpts.includeRegions = normalizeList(includeRegions);
+    processOpts.excludeRegions = normalizeList(excludeRegions);
     if (rename) processOpts.rename = rename;
+    if (regexDelete) processOpts.regexDelete = regexDelete;
+    if (regexSort) processOpts.regexSort = regexSort;
+    if (filterUseless !== undefined) processOpts.filterUseless = filterUseless;
     if (addEmoji !== undefined) processOpts.addEmoji = addEmoji;
     if (deduplicate !== undefined) processOpts.deduplicate = deduplicate;
     if (sort) processOpts.sort = sort;
     if (enableUdp !== undefined) processOpts.enableUdp = enableUdp;
     if (skipCertVerify !== undefined) processOpts.skipCertVerify = skipCertVerify;
-    const processed = processNodes(nodes, processOpts);
+    const maybeResolved = await resolveNodeDomains(nodes, resolveDomain);
+    const processed = processNodes(maybeResolved, processOpts);
 
     const supported = processed.filter((n) => generator.supportedProtocols.includes(n.type));
     const skipped = processed.filter((n) => !generator.supportedProtocols.includes(n.type)).map((n) => `${n.name} (${n.type})`);

@@ -3,19 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getPresets, savePreset, deletePreset, ConfigPreset } from '../presets';
 
 interface Props {
-  currentConfig: {
-    target: string;
-    ruleTemplate: string;
-    include: string;
-    exclude: string;
-    rename: string;
-    addEmoji: boolean;
-    deduplicate: boolean;
-    sort: 'none' | 'name' | 'region';
-    enableUdp?: boolean;
-    skipCertVerify?: boolean;
-    autoRegionGroup: boolean;
-  };
+  currentConfig: ConfigPreset['config'];
   onLoadPreset: (config: ConfigPreset['config']) => void;
 }
 
