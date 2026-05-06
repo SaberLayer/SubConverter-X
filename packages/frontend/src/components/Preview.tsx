@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ConversionWarning } from '../api';
 
 interface Props {
   output: string;
   nodeCount: number;
   skipped: string[];
+  warnings?: ConversionWarning[];
   filteredOut?: number;
   target: string;
 }
 
-export default function Preview({ output, nodeCount, skipped, filteredOut, target }: Props) {
+export default function Preview({ output, nodeCount, skipped, warnings = [], filteredOut, target }: Props) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   void target;
@@ -35,6 +37,11 @@ export default function Preview({ output, nodeCount, skipped, filteredOut, targe
               ({t('result.skippedUnsupported', { count: skipped.length })})
             </span>
           )}
+          {warnings.length > 0 && (
+            <span className="ml-2 text-amber-600 dark:text-amber-400">
+              ({t('result.warnings', { count: warnings.length })})
+            </span>
+          )}
         </div>
         <button
           onClick={handleCopy}
@@ -43,6 +50,23 @@ export default function Preview({ output, nodeCount, skipped, filteredOut, targe
           {copied ? t('common.copied') : t('common.copy')}
         </button>
       </div>
+      {warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-900 dark:text-amber-100 space-y-2">
+          <div className="font-medium">{t('result.compatibilityWarnings')}</div>
+          <ul className="space-y-1">
+            {warnings.map((warning, index) => (
+              <li key={`${warning.code}-${index}`}>
+                <span>{warning.message}</span>
+                {warning.nodes?.length ? (
+                  <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">
+                    {t('result.affectedNodes', { nodes: warning.nodes.join(', '), count: warning.count ?? warning.nodes.length })}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <pre className="w-full max-h-96 overflow-auto rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3 text-xs font-mono whitespace-pre-wrap break-all">
         {output}
       </pre>

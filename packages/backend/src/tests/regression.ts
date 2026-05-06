@@ -7,6 +7,7 @@ import { validateUrl } from '../core/url-safety';
 import { createRateLimiter } from '../core/rate-limit';
 import { ApiError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
+import { analyzeConversion } from '../core/capabilities';
 import { saveSubscription, getSubscription } from '../db';
 import net from 'node:net';
 
@@ -279,6 +280,54 @@ add('request schema validates direct subscription query', () => {
   assert(parsed.target === 'auto', 'target parse mismatch');
   assert(parsed.addEmoji === true, 'emoji query flag should parse true');
   assert(parsed.deduplicate === true, 'dedupe query flag should parse true');
+});
+
+add('conversion capabilities report unsupported and downgraded features', () => {
+  const nodes = [
+    {
+      name: 'SSR-OLD',
+      type: 'ssr',
+      server: '1.1.1.1',
+      port: 8388,
+      method: 'aes-128-gcm',
+      password: 'pwd',
+      ssrProtocol: 'origin',
+      ssrObfs: 'plain',
+      transport: 'tcp',
+      tls: 'none',
+    },
+    {
+      name: 'VL-XHTTP',
+      type: 'vless',
+      server: '2.2.2.2',
+      port: 443,
+      uuid: '11111111-1111-1111-1111-111111111111',
+      transport: 'xhttp',
+      tls: 'tls',
+      xhttpPath: '/edge',
+      xhttpHost: 'edge.example.com',
+      xhttpMode: 'auto',
+    },
+    {
+      name: 'WG-SB',
+      type: 'wireguard',
+      server: '3.3.3.3',
+      port: 51820,
+      privateKey: 'pvt',
+      publicKey: 'pub',
+      transport: 'tcp',
+      tls: 'none',
+    },
+  ] as any;
+
+  const singbox = getGenerator('singbox');
+  assert(singbox, 'missing singbox generator');
+  const singboxAnalysis = analyzeConversion('singbox', nodes, singbox.supportedProtocols);
+  assert(singboxAnalysis.supported.length === 2, `expected 2 singbox supported nodes, got ${singboxAnalysis.supported.length}`);
+  assert(singboxAnalysis.skipped.some((item) => item.includes('SSR-OLD')), 'expected SSR node to be skipped for singbox');
+  assert(singboxAnalysis.warnings.some((w) => w.code === 'UNSUPPORTED_PROTOCOL' && w.protocol === 'ssr'), 'missing unsupported SSR warning');
+  assert(singboxAnalysis.warnings.some((w) => w.code === 'TRANSPORT_DOWNGRADED' && w.nodes?.includes('VL-XHTTP')), 'missing xhttp downgrade warning');
+  assert(singboxAnalysis.warnings.some((w) => w.code === 'FEATURE_PARTIAL' && w.nodes?.includes('WG-SB')), 'missing wireguard partial warning');
 });
 
 add('resolve domain operator', async () => {

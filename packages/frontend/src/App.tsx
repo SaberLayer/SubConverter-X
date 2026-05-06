@@ -207,7 +207,16 @@ export default function App() {
           </div>
         )}
 
-        {result && <Preview output={result.output} nodeCount={result.nodeCount} skipped={result.skipped} filteredOut={result.filteredOut} target={target} />}
+        {result && (
+          <Preview
+            output={result.output}
+            nodeCount={result.nodeCount}
+            skipped={result.skipped}
+            warnings={result.warnings}
+            filteredOut={result.filteredOut}
+            target={target}
+          />
+        )}
       </main>
     </div>
   );

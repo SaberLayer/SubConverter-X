@@ -8,6 +8,7 @@ import { generateRegionGroups } from '../core/region-groups';
 import { resolveNodeDomains } from '../core/resolve-domain';
 import { ApiError, sendError } from '../core/api-error';
 import { parseConversionRequest } from '../core/request-schema';
+import { analyzeConversion } from '../core/capabilities';
 
 const router = Router();
 
@@ -52,8 +53,7 @@ router.post('/', async (req: Request, res: Response) => {
     const maybeResolved = await resolveNodeDomains(nodes, resolveDomain);
     const processed = processNodes(maybeResolved, processOpts);
 
-    const supported = processed.filter((n) => generator.supportedProtocols.includes(n.type));
-    const skipped = processed.filter((n) => !generator.supportedProtocols.includes(n.type)).map((n) => `${n.name} (${n.type})`);
+    const { supported, skipped, warnings } = analyzeConversion(finalTarget, processed, generator.supportedProtocols);
 
     // Determine proxy groups
     let finalProxyGroups = proxyGroups;
@@ -77,6 +77,7 @@ router.post('/', async (req: Request, res: Response) => {
       output,
       nodeCount: supported.length,
       skipped,
+      warnings,
       subscriptionUserinfo,
       filteredOut: nodes.length - processed.length,
     });

@@ -58,8 +58,19 @@ export interface ConvertResponse {
   output: string;
   nodeCount: number;
   skipped: string[];
+  warnings?: ConversionWarning[];
   subscriptionUserinfo?: string;
   filteredOut?: number;
+}
+
+export interface ConversionWarning {
+  code: string;
+  severity: 'info' | 'warning';
+  message: string;
+  target: string;
+  protocol?: string;
+  nodes?: string[];
+  count?: number;
 }
 
 export interface ShortenResponse {

@@ -111,7 +111,10 @@
     "generateShortUrl": "Generate Short URL",
     "generateQrCode": "Generate QR Code",
     "filteredOut": "{{count}} nodes filtered",
-    "skippedUnsupported": "{{count}} unsupported nodes skipped"
+    "skippedUnsupported": "{{count}} unsupported nodes skipped",
+    "warnings": "{{count}} compatibility warnings",
+    "compatibilityWarnings": "Compatibility warnings",
+    "affectedNodes": "{{count}} affected nodes: {{nodes}}"
   },
   "preset": {
     "title": "Presets",

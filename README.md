@@ -68,6 +68,8 @@ npm run dev:frontend
 
 ## 支持的协议
 
+说明：表格中的 `✓` 表示该目标格式具备基础解析/生成能力，不代表所有客户端私有字段都能 100% 保真。转换接口会在响应中返回 `warnings`，用于提示协议降级、字段无法完整表达、节点被跳过等情况。
+
 | 协议 | 解析 | Clash Meta | sing-box | Surge | QX | Shadowrocket | Loon | V2Ray | Base64 |
 |------|------|-----------|---------|-------|-----|-------------|------|-------|--------|
 | Shadowsocks | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -81,6 +83,17 @@ npm run dev:frontend
 | WireGuard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
 | SOCKS5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | HTTP/HTTPS | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+### 兼容性提示
+
+转换结果会附带兼容性提示，帮助判断输出是否需要手动确认：
+
+- `UNSUPPORTED_PROTOCOL`：目标格式不支持该协议，节点会被跳过。
+- `TRANSPORT_DOWNGRADED`：传输层被降级映射，例如 sing-box 当前会将 xHTTP/SplitHTTP 按 HTTPUpgrade 输出。
+- `FEATURE_PARTIAL`：协议基础字段已输出，但高级字段可能需要手动补充，例如 WireGuard 的本地地址、Reality 参数等。
+- `FORMAT_ALIAS`：目标格式当前复用兼容输出，例如 Stash/Egern 复用 Clash Meta，Surfboard/Surge Mac 复用 Surge。
+
+前端会在转换结果区域展示这些提示；API 用户可读取响应中的 `warnings` 字段。
 
 ### 支持的传输协议
 
@@ -195,7 +208,18 @@ Content-Type: application/json
 {
   "output": "port: 7890\n...",
   "nodeCount": 3,
-  "skipped": ["节点名 (wireguard)"],
+  "skipped": ["SSR-Old (ssr)"],
+  "warnings": [
+    {
+      "code": "FEATURE_PARTIAL",
+      "severity": "warning",
+      "target": "singbox",
+      "protocol": "wireguard",
+      "message": "sing-box WireGuard 输出使用默认 local_address 10.0.0.2/32，请按实际隧道地址手动调整。",
+      "nodes": ["WG-1"],
+      "count": 1
+    }
+  ],
   "filteredOut": 1
 }
 ```

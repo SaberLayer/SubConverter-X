@@ -10,6 +10,7 @@ import { resolveNodeDomains } from '../core/resolve-domain';
 import { generateRegionGroups } from '../core/region-groups';
 import { ApiError, sendError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
+import { analyzeConversion } from '../core/capabilities';
 
 const router = Router();
 
@@ -105,7 +106,7 @@ router.get('/sub', async (req: Request, res: Response) => {
       skipCertVerify,
     });
 
-    const supported = processed.filter((n) => generator.supportedProtocols.includes(n.type));
+    const { supported } = analyzeConversion(target, processed, generator.supportedProtocols);
 
     let resolvedRules: string | undefined;
     if (ruleTemplate) {
@@ -206,7 +207,7 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
       skipCertVerify: sub.skipCertVerify,
     });
 
-    const supported = processed.filter((n) => generator.supportedProtocols.includes(n.type));
+    const { supported } = analyzeConversion(target, processed, generator.supportedProtocols);
 
     // Resolve rule template ID to actual rules
     let resolvedRules: string | undefined;
