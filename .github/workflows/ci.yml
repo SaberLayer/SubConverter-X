@@ -7,6 +7,25 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  shell-scripts:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check shell syntax
+      run: |
+        bash -n start.sh
+        bash -n publish.sh
+
+    - name: Install ShellCheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y shellcheck
+
+    - name: Run ShellCheck
+      run: shellcheck start.sh publish.sh
+
   build-and-test:
     runs-on: ubuntu-latest
 
