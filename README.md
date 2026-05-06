@@ -17,7 +17,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
+git clone https://github.com/SaberLayer/SubConverter-X.git
 cd SubConverter-X
 
 # 运行管理面板
@@ -25,13 +25,13 @@ chmod +x start.sh
 ./start.sh
 ```
 
-首次运行会自动注册全局命令 `subx`，之后在任意目录输入 `subx` 即可打开管理面板。
+首次运行会询问是否注册全局命令 `subx`。注册后可在任意目录输入 `subx` 打开管理面板；不注册也可以继续使用 `./start.sh`。
 
 管理面板功能：
 
 | 选项 | 说明 |
 |------|------|
-| 1) 部署 / 重新配置 | 选择 HTTP 或 HTTPS，配置端口、域名、证书 |
+| 1) 部署 / 重新配置 | 选择镜像或源码构建部署，配置 HTTP/HTTPS、端口、域名、证书 |
 | 2) 更新服务 | 自动拉取最新代码并重建，保留用户配置 |
 | 3) 查看状态 | 容器运行状态、访问地址、资源占用 |
 | 4) 重启服务 | 重启所有容器 |
@@ -41,6 +41,24 @@ chmod +x start.sh
 
 ### 方式二：Docker 部署
 
+#### 使用预构建镜像（适合普通用户）
+
+```bash
+# 复制环境变量配置
+cp .env.example .env
+
+# 启动服务
+docker compose -f docker-compose.image.yml up -d
+```
+
+默认镜像为 `ghcr.io/saberlayer/subconverter-x:latest`。如果你 Fork 后发布自己的镜像，可在 `.env` 中设置：
+
+```env
+SUBCONVERTER_IMAGE=ghcr.io/你的用户名/subconverter-x:latest
+```
+
+#### 从源码构建（适合二次开发）
+
 ```bash
 # 复制环境变量配置
 cp .env.example .env
@@ -49,7 +67,7 @@ cp .env.example .env
 nano .env
 
 # 启动服务
-docker compose up -d
+docker compose up -d --build
 ```
 
 默认访问地址：`http://localhost:8080`
@@ -246,7 +264,7 @@ Content-Type: application/json
 ```json
 {
   "token": "abc123",
-  "url": "http://localhost:3000/api/sub/abc123"
+  "url": "http://localhost:8080/api/sub/abc123"
 }
 ```
 
@@ -370,7 +388,8 @@ SubConverter-X/
 │   │   └── routes/               # API 路由
 │   └── frontend/src/             # React 前端
 ├── Dockerfile
-└── docker-compose.yml
+├── docker-compose.yml              # 源码构建部署
+└── docker-compose.image.yml        # 预构建镜像部署
 ```
 
 ## 技术栈
@@ -378,7 +397,7 @@ SubConverter-X/
 - 后端：Node.js + TypeScript + Express
 - 前端：React + TypeScript + Vite + Tailwind CSS
 - 存储：SQLite（better-sqlite3）
-- 部署：单容器 Docker，前端构建后由后端静态托管
+- 部署：Docker / Docker Compose，前端构建后同步到后端静态目录并由后端托管
 
 ## 环境变量
 
@@ -388,6 +407,8 @@ SubConverter-X/
 | `DB_PATH` | `./data/subconverter-x.db` | SQLite 数据库路径 |
 | `EXTERNAL_HTTP_PORT` | `8080` | 外部 HTTP 访问端口 |
 | `EXTERNAL_HTTPS_PORT` | `8443` | 外部 HTTPS 访问端口 |
+| `SUBCONVERTER_IMAGE` | `ghcr.io/saberlayer/subconverter-x:latest` | 预构建镜像部署时使用的镜像 |
+| `DEPLOY_MODE` | `image` | 管理脚本使用的部署模式，`image` 为预构建镜像，`source` 为源码构建 |
 | `DOMAIN` | (空) | 域名（可选，配置后访问地址显示域名） |
 
 ## 部署配置
@@ -422,8 +443,10 @@ cp /etc/letsencrypt/live/your-domain.com/privkey.pem nginx/ssl/
 
 4. 重启服务：
 ```bash
-docker compose restart
+docker compose -f docker-compose.image.yml restart nginx
 ```
+
+如果使用源码构建部署，改用 `docker compose restart nginx`。
 
 详细部署文档请查看：
 - **QUICK_START.md** - 快速开始指南
@@ -482,7 +505,7 @@ certbot renew
 cp /etc/letsencrypt/live/your-domain.com/*.pem nginx/ssl/
 
 # 重启 Nginx
-docker compose restart nginx
+docker compose -f docker-compose.image.yml restart nginx
 ```
 
 建议设置自动续期（crontab）。

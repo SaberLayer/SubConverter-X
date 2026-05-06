@@ -22,7 +22,7 @@ Docker 部署自动包含 Nginx，无需手动配置。
 
 ```bash
 # 克隆项目
-git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
+git clone https://github.com/SaberLayer/SubConverter-X.git
 cd SubConverter-X
 
 # 运行管理面板
@@ -30,13 +30,13 @@ chmod +x start.sh
 ./start.sh
 ```
 
-首次运行会自动注册全局命令 `subx`，之后在任意目录输入 `subx` 即可打开管理面板。
+首次运行会询问是否注册全局命令 `subx`。注册后可在任意目录输入 `subx` 打开管理面板；不注册也可以继续使用 `./start.sh`。
 
 管理面板功能：
 
 | 选项 | 说明 |
 |------|------|
-| 1) 部署 / 重新配置 | 选择 HTTP 或 HTTPS，配置端口、域名、证书，自动检测端口冲突 |
+| 1) 部署 / 重新配置 | 选择镜像或源码构建部署，配置 HTTP/HTTPS、端口、域名、证书，自动检测端口冲突 |
 | 2) 更新服务 | 自动拉取最新代码并重建，保留用户配置 |
 | 3) 查看状态 | 容器运行状态、访问地址、CPU/内存占用 |
 | 4) 重启服务 | 重启所有容器，未运行时自动启动 |
@@ -45,13 +45,37 @@ chmod +x start.sh
 | 7) 卸载 | 停止容器、删除命令、可选删除项目文件 |
 
 部署流程（选项 1）：
-1. 选择协议（HTTP / HTTPS）
-2. 设置端口（自动检测冲突）
-3. 输入域名（HTTP 可选，HTTPS 必填）
-4. 配置证书（HTTPS 模式：自动申请 Let's Encrypt 或手动指定路径）
-5. 确认启动
+1. 选择部署模式（预构建镜像 / 源码构建）
+2. 选择协议（HTTP / HTTPS）
+3. 设置端口（自动检测冲突）
+4. 输入域名（HTTP 可选，HTTPS 必填）
+5. 配置证书（HTTPS 模式：自动申请 Let's Encrypt 或手动指定路径）
+6. 确认启动
 
 全程无需手动编辑任何文件，操作完成后按回车返回主菜单。
+
+---
+
+### Docker 镜像部署
+
+如果只是使用项目，不需要本地构建源码，可以直接使用预构建镜像：
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.image.yml up -d
+```
+
+默认访问地址为 `http://localhost:8080`。如果你发布了自己的镜像，在 `.env` 中设置：
+
+```env
+SUBCONVERTER_IMAGE=ghcr.io/你的用户名/subconverter-x:latest
+```
+
+源码构建部署仍然使用：
+
+```bash
+docker compose up -d --build
+```
 
 ---
 
@@ -106,7 +130,7 @@ cp /etc/letsencrypt/live/你的域名.com/fullchain.pem nginx/ssl/
 cp /etc/letsencrypt/live/你的域名.com/privkey.pem nginx/ssl/
 
 # 重启 Nginx
-docker compose restart nginx
+docker compose -f docker-compose.image.yml restart nginx
 ```
 
 建议设置自动续期：
@@ -116,7 +140,7 @@ docker compose restart nginx
 crontab -e
 
 # 添加以下行（每月 1 号凌晨 3 点自动续期）
-0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker compose -f /path/to/SubConverter-X/docker-compose.yml restart nginx
+0 3 1 * * certbot renew --quiet && cp /etc/letsencrypt/live/你的域名.com/*.pem /path/to/SubConverter-X/nginx/ssl/ && docker compose -f /path/to/SubConverter-X/docker-compose.image.yml restart nginx
 ```
 
 ### Q7: 国旗显示错误怎么办？
@@ -140,7 +164,8 @@ crontab -e
 
 ```
 SubConverter-X/
-├── docker-compose.yml          # Docker 编排配置（包含 Nginx）
+├── docker-compose.yml          # 源码构建部署（包含 Nginx）
+├── docker-compose.image.yml    # 预构建镜像部署
 ├── Dockerfile                  # 后端构建配置
 ├── .env.example               # 环境变量模板
 ├── nginx/                     # Nginx 配置
@@ -154,7 +179,8 @@ SubConverter-X/
 │   │   ├── src/
 │   │   │   └── core/
 │   │   │       └── emoji.ts  # 国旗识别（已修复）
-│   │   └── public/           # 前端静态文件
+│   │   ├── dist/             # 后端构建产物
+│   │   └── public/           # npm run build 生成的前端静态文件（未提交）
 │   └── frontend/             # 前端源码
 │       └── src/
 │           ├── i18n.ts       # 国际化配置
@@ -215,7 +241,7 @@ SQLite 数据库
 ## 🔄 版本信息
 
 - **当前版本**: v1.0.0
-- **更新日期**: 2026-02-12
+- **更新日期**: 2026-05-06
 - **主要改进**:
   - ✅ 修复国旗识别错误
   - ✅ 集成 Nginx 到 Docker
@@ -226,4 +252,4 @@ SQLite 数据库
 
 ---
 
-**祝使用愉快！** 🎉
+如需完整生产部署步骤，请继续阅读 `DEPLOYMENT.md`。

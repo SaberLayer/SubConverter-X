@@ -6,9 +6,14 @@
 *.md
 LICENSE
 node_modules
+dist/
+build/
+packages/*/dist/
+packages/*/build/
 nginx/ssl
 data/
 packages/backend/data/
+packages/backend/public/
 packages/backend/.rule-cache/
 logs/
 *.log

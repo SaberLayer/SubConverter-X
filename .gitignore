@@ -11,6 +11,7 @@ build/
 *.tsbuildinfo
 packages/*/dist/
 packages/*/build/
+packages/backend/public/
 
 # Environment variables
 .env

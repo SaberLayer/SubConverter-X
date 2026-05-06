@@ -17,6 +17,7 @@ NC='\033[0m'
 YES_MODE=false
 DRY_RUN=false
 NO_REGISTER=false
+DEPLOY_MODE_OVERRIDE=""
 
 show_help() {
     cat <<'EOF'
@@ -176,7 +177,10 @@ check_port() {
 
 # 检查服务是否正在运行
 is_running() {
-    docker compose ps --status running 2>/dev/null | grep -q "subconverter-x" && return 0
+    if [ "$DRY_RUN" = true ]; then
+        return 1
+    fi
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -qE '^subconverter-x-(backend|nginx)$' && return 0
     return 1
 }
 
@@ -190,6 +194,81 @@ get_env_value() {
         echo "${value:-$default}"
     else
         echo "$default"
+    fi
+}
+
+env_key_exists() {
+    local key=$1
+    [ -f .env ] && grep -q "^${key}=" .env 2>/dev/null
+}
+
+get_deploy_mode() {
+    local mode
+    if [ -n "$DEPLOY_MODE_OVERRIDE" ]; then
+        mode="$DEPLOY_MODE_OVERRIDE"
+    elif env_key_exists "DEPLOY_MODE"; then
+        mode=$(get_env_value "DEPLOY_MODE" "image")
+    else
+        local config_files
+        config_files=""
+        if [ "$DRY_RUN" != true ] && command -v docker > /dev/null 2>&1; then
+            config_files=$(docker inspect subconverter-x-backend --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' 2>/dev/null || true)
+        fi
+        case "$config_files" in
+            *docker-compose.image.yml*) mode="image" ;;
+            *docker-compose.yml*) mode="source" ;;
+            *) mode="image" ;;
+        esac
+    fi
+
+    case "$mode" in
+        image|source)
+            echo "$mode"
+            ;;
+        *)
+            echo "image"
+            ;;
+    esac
+}
+
+show_deploy_mode() {
+    case "$(get_deploy_mode)" in
+        image) echo "预构建镜像 / Prebuilt image" ;;
+        source) echo "源码构建 / Source build" ;;
+    esac
+}
+
+run_compose() {
+    if [ "$(get_deploy_mode)" = "image" ]; then
+        run_cmd docker compose -f docker-compose.image.yml "$@"
+    else
+        run_cmd docker compose "$@"
+    fi
+}
+
+compose_ps() {
+    run_compose ps
+}
+
+start_service() {
+    if [ "$(get_deploy_mode)" = "image" ]; then
+        echo "🚀 启动服务（预构建镜像）..."
+        run_compose up -d --force-recreate
+    else
+        echo "🚀 启动服务（源码构建）..."
+        run_compose up -d --build --force-recreate
+    fi
+}
+
+update_service_containers() {
+    if [ "$(get_deploy_mode)" = "image" ]; then
+        echo "📦 拉取最新镜像..."
+        run_compose pull
+        echo "🚀 重建容器..."
+        run_compose up -d --force-recreate
+    else
+        echo "🔨 重新构建服务..."
+        run_compose up -d --build --force-recreate
     fi
 }
 
@@ -297,22 +376,18 @@ show_access_url() {
 # ========== 检查环境 ==========
 
 # 检查 Docker
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}❌ 未安装 Docker / Docker is not installed${NC}"
-    echo ""
-    echo "请先安装 Docker: https://docs.docker.com/get-docker/"
-    if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}dry-run 模式继续运行，仅展示流程，不会执行 Docker 命令。${NC}"
-    else
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}dry-run 模式：跳过 Docker 探测，仅展示流程和将执行的命令。${NC}"
+else
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}❌ 未安装 Docker / Docker is not installed${NC}"
+        echo ""
+        echo "请先安装 Docker: https://docs.docker.com/get-docker/"
         exit 1
     fi
-fi
 
-if command -v docker &> /dev/null && ! docker compose version &> /dev/null; then
-    echo -e "${RED}❌ 未安装 Docker Compose / Docker Compose is not installed${NC}"
-    if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}dry-run 模式继续运行，仅展示流程，不会执行 Docker Compose 命令。${NC}"
-    else
+    if ! docker compose version &> /dev/null; then
+        echo -e "${RED}❌ 未安装 Docker Compose / Docker Compose is not installed${NC}"
         exit 1
     fi
 fi
@@ -341,6 +416,7 @@ show_menu() {
     else
         echo -e "  状态: ${RED}● 未运行${NC}"
     fi
+    echo "  部署模式: $(show_deploy_mode)"
 
     echo ""
     echo "  1) 部署 / 重新配置    Deploy / Reconfigure"
@@ -370,6 +446,28 @@ do_deploy() {
         echo ""
     fi
 
+    echo "📝 选择部署模式 / Select deployment mode:"
+    echo "  1) 预构建镜像（推荐普通用户）/ Prebuilt image"
+    echo "  2) 源码构建（推荐开发者）/ Source build"
+    echo ""
+    read -r -p "  请选择 / Select (1-2) [1]: " deploy_mode
+    deploy_mode=${deploy_mode:-1}
+    case "$deploy_mode" in
+        1)
+            DEPLOY_MODE_OVERRIDE="image"
+            set_env_value "DEPLOY_MODE" "image"
+            ;;
+        2)
+            DEPLOY_MODE_OVERRIDE="source"
+            set_env_value "DEPLOY_MODE" "source"
+            ;;
+        *)
+            echo -e "${RED}❌ 无效选项${NC}"
+            return
+            ;;
+    esac
+
+    echo ""
     echo "📝 选择协议 / Select protocol:"
     echo "  1) HTTP（无需证书）/ HTTP (no certificate needed)"
     echo "  2) HTTPS（需要 SSL 证书）/ HTTPS (SSL certificate required)"
@@ -442,8 +540,7 @@ deploy_http() {
     fi
 
     echo ""
-    echo "🚀 启动服务..."
-    if run_cmd docker compose up -d --build --force-recreate; then
+    if start_service; then
         echo ""
         echo -e "${GREEN}==========================================${NC}"
         echo -e "${GREEN}  ✅ 部署成功！/ Deployment successful!${NC}"
@@ -457,7 +554,7 @@ deploy_http() {
             echo "  http://$(hostname -I | awk '{print $1}'):$http_port"
         fi
     else
-        echo -e "${RED}❌ 启动失败，请检查日志: docker compose logs${NC}"
+        echo -e "${RED}❌ 启动失败，请检查日志${NC}"
     fi
 }
 
@@ -578,7 +675,7 @@ deploy_https() {
         if [ ! -f nginx/conf.d/default.conf ] && [ -f nginx/conf.d/default.conf.bak ]; then
             run_cmd mv nginx/conf.d/default.conf.bak nginx/conf.d/default.conf
         fi
-        run_cmd docker compose up -d --build --force-recreate
+        start_service
 
         echo ""
         echo "访问地址: http://$domain:$http_port"
@@ -615,13 +712,12 @@ deploy_https() {
     echo ""
 
     if ! confirm_action "确认启动？(Y/n) / Confirm to start? (Y/n): " "Y"; then
-        echo "已取消。稍后可运行 docker compose up -d 启动"
+        echo "已取消。稍后可重新运行管理面板启动"
         return
     fi
 
     echo ""
-    echo "🚀 启动服务..."
-    if run_cmd docker compose up -d --build --force-recreate; then
+    if start_service; then
         echo ""
         echo -e "${GREEN}==========================================${NC}"
         echo -e "${GREEN}  ✅ 部署成功！/ Deployment successful!${NC}"
@@ -630,7 +726,7 @@ deploy_https() {
         echo "访问地址 / Access URL:"
         echo "  https://$domain:$https_port"
     else
-        echo -e "${RED}❌ 启动失败，请检查日志: docker compose logs${NC}"
+        echo -e "${RED}❌ 启动失败，请检查日志${NC}"
     fi
 }
 
@@ -651,7 +747,7 @@ do_update() {
         run_cmd git fetch origin
         run_cmd git stash --include-untracked
         run_cmd git pull
-        run_cmd docker compose up -d --build --force-recreate
+        update_service_containers
         return
     fi
 
@@ -721,10 +817,9 @@ do_update() {
         run_cmd mv nginx/ssl.backup nginx/ssl
     fi
 
-    # 重新构建并启动
+    # 更新并启动容器
     echo ""
-    echo "🔨 重新构建服务..."
-    if run_cmd docker compose up -d --build --force-recreate; then
+    if update_service_containers; then
         echo ""
         echo -e "${GREEN}==========================================${NC}"
         echo -e "${GREEN}  ✅ 更新完成！/ Update successful!${NC}"
@@ -733,7 +828,7 @@ do_update() {
         echo "📋 最近更新 / Recent changes:"
         git log --oneline -5
     else
-        echo -e "${RED}❌ 构建失败，请检查日志: docker compose logs${NC}"
+        echo -e "${RED}❌ 更新失败，请检查日志${NC}"
     fi
 }
 
@@ -743,7 +838,7 @@ do_status() {
     echo ""
     echo "📊 服务状态 / Service Status:"
     echo ""
-    docker compose ps
+    compose_ps
 
     if is_running; then
         echo ""
@@ -761,10 +856,10 @@ do_restart() {
     echo ""
     if ! is_running; then
         echo -e "${YELLOW}⚠️  服务未运行，正在启动...${NC}"
-        run_cmd docker compose up -d
+        run_compose up -d
     else
         echo "🔄 重启服务..."
-        run_cmd docker compose restart
+        run_compose restart
     fi
 
     if [ "$DRY_RUN" = true ]; then
@@ -789,7 +884,7 @@ do_stop() {
 
     if confirm_action "确认停止服务？(y/N) / Confirm stop? (y/N): " "N"; then
         echo "🛑 停止服务..."
-        run_cmd docker compose down
+        run_compose down
         echo -e "${GREEN}✅ 服务已停止${NC}"
     fi
 }
@@ -811,10 +906,10 @@ do_logs() {
     echo ""
 
     case "$log_choice" in
-        1) run_cmd docker compose logs -f --tail 100 ;;
-        2) run_cmd docker compose logs -f --tail 100 backend ;;
-        3) run_cmd docker compose logs -f --tail 100 nginx ;;
-        *) run_cmd docker compose logs -f --tail 100 ;;
+        1) run_compose logs -f --tail 100 ;;
+        2) run_compose logs -f --tail 100 backend ;;
+        3) run_compose logs -f --tail 100 nginx ;;
+        *) run_compose logs -f --tail 100 ;;
     esac
 }
 
@@ -839,7 +934,7 @@ do_uninstall() {
 
     echo ""
     echo "🛑 停止服务..."
-    run_cmd docker compose down -v
+    run_compose down -v
 
     echo "🗑️  删除全局命令..."
     if [ -L /usr/local/bin/subx ] && [ "$(readlink /usr/local/bin/subx 2>/dev/null)" = "$SCRIPT_DIR/start.sh" ]; then

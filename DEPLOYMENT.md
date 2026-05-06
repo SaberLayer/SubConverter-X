@@ -59,63 +59,66 @@ docker --version
 docker compose version
 ```
 
-### 步骤 2：上传项目代码
+### 步骤 2：获取部署文件
 
-**方式 A：使用 Git（推荐）**
+推荐使用 Git，这样后续可以直接执行更新命令。
 
 ```bash
 # 选择安装目录
 cd /opt
 
 # 克隆仓库（替换为你的仓库地址）
-git clone https://github.com/YOUR_USERNAME/SubConverter-X.git
+git clone https://github.com/SaberLayer/SubConverter-X.git
 
 # 进入项目目录
 cd SubConverter-X
 ```
 
-**方式 B：手动上传**
-
-```bash
-# 在本地打包项目
-tar -czf SubConverter-X.tar.gz SubConverter-X/
-
-# 上传到服务器
-scp SubConverter-X.tar.gz user@your-server-ip:/opt/
-
-# 在服务器上解压
-ssh user@your-server-ip
-cd /opt
-tar -xzf SubConverter-X.tar.gz
-cd SubConverter-X
-```
+如果你 Fork 了项目，请将仓库地址替换为自己的仓库地址。
 
 ### 步骤 3：配置环境变量
 
 ```bash
-# 复制环境变量模板
 cp .env.example .env
-
-# 编辑配置文件
 nano .env
 ```
 
-编辑 `.env` 文件内容：
+常用配置：
 
 ```env
-# 服务端口（默认 3000）
-PORT=3000
+# 外部访问端口
+EXTERNAL_HTTP_PORT=8080
+EXTERNAL_HTTPS_PORT=8443
 
-# 数据库路径
-DB_PATH=./data/subconverter-x.db
+# 预构建镜像部署时使用，Fork 用户可改为自己的镜像
+SUBCONVERTER_IMAGE=ghcr.io/saberlayer/subconverter-x:latest
 
-# 运行环境
-NODE_ENV=production
+# 管理脚本部署模式：image 使用预构建镜像，source 从源码构建
+DEPLOY_MODE=image
 ```
 
-保存并退出（Ctrl+X，然后 Y，然后 Enter）。
+生产环境如果要直接监听标准端口，可以改为：
+
+```env
+EXTERNAL_HTTP_PORT=80
+EXTERNAL_HTTPS_PORT=443
+```
 
 ### 步骤 4：启动服务
+
+#### 方案 A：使用预构建镜像（推荐普通用户）
+
+```bash
+# 拉取镜像并启动容器
+docker compose -f docker-compose.image.yml up -d
+
+# 查看启动日志
+docker compose -f docker-compose.image.yml logs -f
+```
+
+这种方式不需要在服务器上安装 Node.js，也不需要等待前端和后端源码构建。
+
+#### 方案 B：从源码构建（推荐开发者）
 
 ```bash
 # 构建并启动容器（后台运行）
@@ -131,15 +134,23 @@ docker compose logs -f
 
 ```bash
 # 检查容器状态
-docker compose ps
+docker compose -f docker-compose.image.yml ps
 
 # 测试服务是否正常
-curl http://localhost:3000
+curl http://localhost:8080/health
 
-# 应该返回前端页面的 HTML
+# 应该返回 {"status":"ok",...}
 ```
 
-### 步骤 6：配置反向代理（可选但推荐）
+浏览器访问：`http://你的服务器IP:8080`
+
+如果使用源码构建方案，把上述命令中的 `-f docker-compose.image.yml` 去掉即可。
+
+### 步骤 6：配置域名和 HTTPS（可选但推荐）
+
+项目的 Compose 配置已经内置 Nginx。大多数情况下，不需要再安装系统 Nginx，只需要把 `.env` 中的 `EXTERNAL_HTTP_PORT` / `EXTERNAL_HTTPS_PORT` 改成你希望暴露的端口。
+
+如果服务器上已经有系统 Nginx，并且你希望统一由它接管 80/443 端口，可以让系统 Nginx 反向代理到 Compose 暴露的 `8080` 端口。
 
 #### 6.1 安装 Nginx
 
@@ -174,8 +185,8 @@ server {
         # 速率限制：每秒 10 个请求，突发 20 个
         limit_req zone=api_limit burst=20 nodelay;
 
-        # 反向代理到 Docker 容器
-        proxy_pass http://localhost:3000;
+        # 反向代理到 Compose 内置 Nginx
+        proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
 
         # 请求头设置
@@ -315,7 +326,7 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: 3000,
-      DB_PATH: './data/subscriptions.db'
+      DB_PATH: './data/subconverter-x.db'
     },
     error_file: './logs/err.log',
     out_file: './logs/out.log',
@@ -379,7 +390,7 @@ sudo nano /opt/backup-subconverter-x.sh
 
 # 配置
 BACKUP_DIR="/opt/backups/subconverter-x"
-DB_PATH="/opt/SubConverter-X/data/subscriptions.db"
+DB_PATH="/opt/SubConverter-X/data/subconverter-x.db"
 DATE=$(date +%Y%m%d_%H%M%S)
 KEEP_DAYS=7
 
@@ -388,15 +399,15 @@ mkdir -p $BACKUP_DIR
 
 # 备份数据库
 if [ -f "$DB_PATH" ]; then
-    cp "$DB_PATH" "$BACKUP_DIR/subscriptions_$DATE.db"
-    echo "$(date): 备份成功 - subscriptions_$DATE.db"
+    cp "$DB_PATH" "$BACKUP_DIR/subconverter-x_$DATE.db"
+    echo "$(date): 备份成功 - subconverter-x_$DATE.db"
 else
     echo "$(date): 错误 - 数据库文件不存在"
     exit 1
 fi
 
 # 删除旧备份（保留最近 7 天）
-find $BACKUP_DIR -name "subscriptions_*.db" -mtime +$KEEP_DAYS -delete
+find $BACKUP_DIR -name "subconverter-x_*.db" -mtime +$KEEP_DAYS -delete
 echo "$(date): 已清理 $KEEP_DAYS 天前的备份"
 ```
 
@@ -453,7 +464,7 @@ bash <(curl -Ss https://my-netdata.io/kickstart.sh)
 ### 1. 限制数据库文件权限
 
 ```bash
-chmod 600 /opt/SubConverter-X/data/subscriptions.db
+chmod 600 /opt/SubConverter-X/data/subconverter-x.db
 ```
 
 ### 2. 配置 Fail2Ban 防止暴力攻击
@@ -532,28 +543,25 @@ sudo crontab -e
 
 ```bash
 # 查看容器状态
-docker compose ps
+docker compose -f docker-compose.image.yml ps
 
 # 查看实时日志
-docker compose logs -f
+docker compose -f docker-compose.image.yml logs -f
 
 # 查看资源使用
 docker stats
 
 # 重启服务
-docker compose restart
+docker compose -f docker-compose.image.yml restart
 
 # 停止服务
-docker compose down
-
-# 更新服务（推荐使用管理面板）
-subx  # 选择选项 2
+docker compose -f docker-compose.image.yml down
 
 # 或手动更新
 cd /opt/SubConverter-X
 git pull
-docker compose down
-docker compose up -d --build
+docker compose -f docker-compose.image.yml pull
+docker compose -f docker-compose.image.yml up -d
 ```
 
 ### PM2 部署监控
@@ -595,7 +603,7 @@ df -h
 free -h
 
 # 查看网络连接
-netstat -tunlp | grep 3000
+netstat -tunlp | grep -E '8080|8443|3000'
 ```
 
 ---
@@ -604,23 +612,23 @@ netstat -tunlp | grep 3000
 
 ### 1. 端口被占用
 
-**问题**：启动时提示端口 3000 已被占用
+**问题**：启动时提示端口 8080 或 8443 已被占用
 
 **解决**：
 
 ```bash
 # 查看占用端口的进程
-sudo lsof -i :3000
+sudo lsof -i :8080
 
 # 或者
-sudo netstat -tunlp | grep 3000
+sudo netstat -tunlp | grep 8080
 
 # 杀死进程（替换 PID）
 sudo kill -9 PID
 
 # 或者修改 .env 中的端口
 nano .env
-# 将 PORT=3000 改为 PORT=3001
+# 将 EXTERNAL_HTTP_PORT=8080 改为其他空闲端口
 ```
 
 ### 2. Docker 容器无法启动
@@ -631,12 +639,16 @@ nano .env
 
 ```bash
 # 查看详细错误日志
-docker compose logs
+docker compose -f docker-compose.image.yml logs
 
-# 清理并重新构建
-docker compose down -v
-docker compose build --no-cache
-docker compose up -d
+# 重新拉取并启动
+docker compose -f docker-compose.image.yml pull
+docker compose -f docker-compose.image.yml up -d --force-recreate
+
+# 如果你使用源码构建部署，再执行：
+# docker compose down -v
+# docker compose build --no-cache
+# docker compose up -d
 
 # 检查磁盘空间
 df -h
@@ -653,10 +665,10 @@ docker system prune -a
 
 ```bash
 # 检查后端服务是否运行
-curl http://localhost:3000
+curl http://localhost:8080/health
 
 # 如果无响应，检查服务状态
-docker compose ps  # Docker 部署
+docker compose -f docker-compose.image.yml ps  # Docker 镜像部署
 pm2 status         # PM2 部署
 
 # 查看 Nginx 错误日志
@@ -685,7 +697,7 @@ sudo chown -R 1000:1000 /opt/SubConverter-X/data/
 # 修复权限（PM2 部署）
 sudo chown -R $USER:$USER /opt/SubConverter-X/data/
 chmod 755 /opt/SubConverter-X/data/
-chmod 644 /opt/SubConverter-X/data/subscriptions.db
+chmod 644 /opt/SubConverter-X/data/subconverter-x.db
 ```
 
 ### 5. SSL 证书续期失败
@@ -749,14 +761,14 @@ sudo swapon /swapfile
 
 ```bash
 # 查看后端日志
-docker compose logs -f  # Docker
+docker compose -f docker-compose.image.yml logs -f backend  # Docker 镜像部署
 pm2 logs subconverter-x   # PM2
 
 # 检查输入格式是否正确
 # 确认协议是否被目标格式支持（参考 README.md 协议兼容性矩阵）
 
 # 测试单个节点转换
-curl -X POST http://localhost:3000/api/convert \
+curl -X POST http://localhost:8080/api/convert \
   -H "Content-Type: application/json" \
   -d '{"input":"你的节点链接","target":"clash-meta"}'
 ```
@@ -796,18 +808,27 @@ subx
 
 面板会自动对比版本、显示更新内容、备份用户配置（`.env`、SSL 证书），拉取最新代码后恢复配置并重建服务。
 
-### Docker 手动更新
+### Docker 镜像部署手动更新
 
 ```bash
 cd /opt/SubConverter-X
 
-# 拉取最新代码
+# 更新部署文件
 git pull
 
-# 停止旧容器
-docker compose down
+# 拉取最新镜像并重建容器
+docker compose -f docker-compose.image.yml pull
+docker compose -f docker-compose.image.yml up -d
 
-# 重新构建并启动
+# 查看日志确认启动成功
+docker compose -f docker-compose.image.yml logs -f
+```
+
+### Docker 源码构建部署手动更新
+
+```bash
+cd /opt/SubConverter-X
+git pull
 docker compose up -d --build
 
 # 查看日志确认启动成功
@@ -845,7 +866,10 @@ pm2 logs subconverter-x
 cd /opt/SubConverter-X
 
 # 停止并删除容器
-docker compose down -v
+docker compose -f docker-compose.image.yml down -v
+
+# 如果你使用源码构建部署，改用：
+# docker compose down -v
 
 # 删除项目文件
 cd /opt
@@ -882,7 +906,7 @@ sudo rm -rf SubConverter-X
 
 1. 查看本文档的「常见问题」章节
 2. 查看项目日志获取详细错误信息
-3. 在 GitHub Issues 提交问题：`https://github.com/YOUR_USERNAME/SubConverter-X/issues`
+3. 在 GitHub Issues 提交问题：`https://github.com/SaberLayer/SubConverter-X/issues`
 4. 提供以下信息以便快速定位问题：
    - 操作系统版本
    - 部署方式（Docker/PM2）
@@ -918,6 +942,6 @@ TTL: 600
 
 ---
 
-**文档版本**: v1.0
-**最后更新**: 2026-02-12
+**文档版本**: v1.1
+**最后更新**: 2026-05-06
 **适用版本**: SubConverter-X v1.0.0+
