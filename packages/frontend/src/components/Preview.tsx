@@ -12,6 +12,7 @@ interface Props {
 export default function Preview({ output, nodeCount, skipped, filteredOut, target }: Props) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  void target;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(output);
@@ -26,12 +27,12 @@ export default function Preview({ output, nodeCount, skipped, filteredOut, targe
           {t('result.nodeCount', { count: nodeCount })}
           {filteredOut ? (
             <span className="ml-2 text-blue-600 dark:text-blue-400">
-              ({filteredOut} {t('advanced.nodeFilter')})
+              ({t('result.filteredOut', { count: filteredOut })})
             </span>
           ) : null}
           {skipped.length > 0 && (
             <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-              ({skipped.length} {t('error.unsupportedProtocol', { protocol: '' })})
+              ({t('result.skippedUnsupported', { count: skipped.length })})
             </span>
           )}
         </div>

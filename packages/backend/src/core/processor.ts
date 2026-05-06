@@ -1,5 +1,6 @@
 import { ProxyNode } from './types';
 import { addEmojiFlag, detectRegion } from './emoji';
+import { nodeFingerprint } from './node-fingerprint';
 
 export type SortMode = 'none' | 'name' | 'region';
 
@@ -173,14 +174,14 @@ function parseRegexSortRules(raw: string): RegExp[] {
 }
 
 /**
- * Remove duplicate nodes based on server+port+type
+ * Remove duplicate nodes based on protocol-relevant connection parameters.
  */
 function deduplicateNodes(nodes: ProxyNode[]): ProxyNode[] {
   const seen = new Set<string>();
   const result: ProxyNode[] = [];
 
   for (const node of nodes) {
-    const key = `${node.type}:${node.server}:${node.port}`;
+    const key = nodeFingerprint(node);
     if (!seen.has(key)) {
       seen.add(key);
       result.push(node);

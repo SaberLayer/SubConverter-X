@@ -227,9 +227,9 @@ export default function AdvancedOptions({
                 onChange={(e) => onSortChange(e.target.value as any)}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="none">{t('common.cancel')}</option>
-                <option value="name">{t('advanced.sort')}</option>
-                <option value="region">{t('advanced.sort')}</option>
+                <option value="none">{t('advanced.sortNone')}</option>
+                <option value="name">{t('advanced.sortByName')}</option>
+                <option value="region">{t('advanced.sortByRegion')}</option>
               </select>
             </div>
           </div>
@@ -248,9 +248,9 @@ export default function AdvancedOptions({
                 }}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="default">{t('common.cancel')}</option>
-                <option value="true">{t('common.confirm')}</option>
-                <option value="false">{t('common.cancel')}</option>
+                <option value="default">{t('advanced.keepOriginal')}</option>
+                <option value="true">{t('advanced.forceEnable')}</option>
+                <option value="false">{t('advanced.forceDisable')}</option>
               </select>
             </div>
 
@@ -264,9 +264,9 @@ export default function AdvancedOptions({
                 }}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="default">{t('common.cancel')}</option>
-                <option value="true">{t('common.confirm')}</option>
-                <option value="false">{t('common.cancel')}</option>
+                <option value="default">{t('advanced.keepOriginal')}</option>
+                <option value="true">{t('advanced.forceEnable')}</option>
+                <option value="false">{t('advanced.forceDisable')}</option>
               </select>
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function AdvancedOptions({
                 onChange={(e) => onAutoRegionGroupChange(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300">{t('advanced.proxyGroups')}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t('advanced.autoRegionGroup')}</span>
             </label>
           </div>
         </div>

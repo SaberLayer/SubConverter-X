@@ -1,15 +1,19 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const DB_PATH = path.resolve(process.env.DB_PATH || './data/subconverter.db');
+const DB_PATH = process.env.DB_PATH === ':memory:'
+  ? ':memory:'
+  : path.resolve(process.env.DB_PATH || './data/subconverter.db');
 
 let db: Database.Database;
 
 function getDb(): Database.Database {
   if (!db) {
     const fs = require('fs');
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    if (DB_PATH !== ':memory:') {
+      const dir = path.dirname(DB_PATH);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    }
 
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
@@ -35,6 +39,7 @@ function getDb(): Database.Database {
         sort_mode TEXT DEFAULT 'none',
         enable_udp INTEGER,
         skip_cert_verify INTEGER,
+        auto_region_group INTEGER DEFAULT 0,
         proxy_groups TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch())
       )
@@ -59,6 +64,7 @@ function getDb(): Database.Database {
     if (!colNames.has('sort_mode')) db.exec('ALTER TABLE subscriptions ADD COLUMN sort_mode TEXT DEFAULT \'none\'');
     if (!colNames.has('enable_udp')) db.exec('ALTER TABLE subscriptions ADD COLUMN enable_udp INTEGER');
     if (!colNames.has('skip_cert_verify')) db.exec('ALTER TABLE subscriptions ADD COLUMN skip_cert_verify INTEGER');
+    if (!colNames.has('auto_region_group')) db.exec('ALTER TABLE subscriptions ADD COLUMN auto_region_group INTEGER DEFAULT 0');
     if (!colNames.has('proxy_groups')) db.exec('ALTER TABLE subscriptions ADD COLUMN proxy_groups TEXT');
 
     // Index for cleanup queries
@@ -87,6 +93,7 @@ export interface SubscriptionOptions {
   sort?: string;
   enableUdp?: boolean;
   skipCertVerify?: boolean;
+  autoRegionGroup?: boolean;
   proxyGroups?: any[];
 }
 
@@ -94,8 +101,8 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
   const stmt = getDb().prepare(
     `INSERT OR REPLACE INTO subscriptions
     (token, input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
-     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, proxy_groups)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, auto_region_group, proxy_groups)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   stmt.run(
     token,
@@ -118,6 +125,7 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
     options.sort || 'none',
     options.enableUdp === undefined ? null : (options.enableUdp ? 1 : 0),
     options.skipCertVerify === undefined ? null : (options.skipCertVerify ? 1 : 0),
+    options.autoRegionGroup ? 1 : 0,
     options.proxyGroups ? JSON.stringify(options.proxyGroups) : null
   );
 }
@@ -140,14 +148,15 @@ function startCleanupSchedule() {
     try { cleanupExpired(); } catch { /* ignore */ }
   };
   run();
-  setInterval(run, 24 * 60 * 60 * 1000);
+  const timer = setInterval(run, 24 * 60 * 60 * 1000);
+  timer.unref?.();
 }
 startCleanupSchedule();
 
 export function getSubscription(token: string): SubscriptionOptions | null {
   const row = getDb().prepare(
     `SELECT input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
-     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, proxy_groups
+     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, auto_region_group, proxy_groups
      FROM subscriptions WHERE token = ?`
   ).get(token) as any;
 
@@ -173,6 +182,7 @@ export function getSubscription(token: string): SubscriptionOptions | null {
     sort: row.sort_mode || 'none',
     enableUdp: row.enable_udp === null ? undefined : row.enable_udp === 1,
     skipCertVerify: row.skip_cert_verify === null ? undefined : row.skip_cert_verify === 1,
+    autoRegionGroup: row.auto_region_group === 1,
     proxyGroups: row.proxy_groups ? JSON.parse(row.proxy_groups) : undefined,
   };
 }

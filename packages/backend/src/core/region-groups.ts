@@ -23,12 +23,12 @@ export function generateRegionGroups(nodes: ProxyNode[]): ProxyGroup[] {
   }
 
   const groups: ProxyGroup[] = [];
+  const mainProxies = ['♻️ Auto'];
 
-  // Create main selection group
   groups.push({
     name: '🚀 Proxy',
     type: 'select',
-    proxies: ['♻️ Auto', '🇭🇰 Hong Kong', '🇺🇸 United States', '🇸🇬 Singapore', '🇯🇵 Japan', '🇹🇼 Taiwan', 'DIRECT'],
+    proxies: mainProxies,
   });
 
   // Create auto-select group
@@ -55,6 +55,7 @@ export function generateRegionGroups(nodes: ProxyNode[]): ProxyGroup[] {
           url: 'http://www.gstatic.com/generate_204',
           interval: 300,
         });
+        mainProxies.push(`${region.emoji} ${region.name}`);
       }
     }
   }
@@ -71,6 +72,7 @@ export function generateRegionGroups(nodes: ProxyNode[]): ProxyGroup[] {
           url: 'http://www.gstatic.com/generate_204',
           interval: 300,
         });
+        mainProxies.push(`${region.emoji} ${region.name}`);
       }
     }
   }
@@ -84,7 +86,10 @@ export function generateRegionGroups(nodes: ProxyNode[]): ProxyGroup[] {
       url: 'http://www.gstatic.com/generate_204',
       interval: 300,
     });
+    mainProxies.push('🌍 Others');
   }
+
+  mainProxies.push('DIRECT');
 
   return groups;
 }

@@ -7,6 +7,7 @@ import { getGenerator } from '../core/generator';
 import { getRule } from '../rules';
 import { TargetFormat } from '../core/types';
 import { resolveNodeDomains } from '../core/resolve-domain';
+import { generateRegionGroups } from '../core/region-groups';
 
 const router = Router();
 
@@ -165,7 +166,7 @@ router.post('/shorten', (req: Request, res: Response) => {
       input, target, ruleTemplate, include, exclude, rename,
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
-      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups
+      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup
     } = req.body as {
       input: string;
       target: TargetFormat;
@@ -187,6 +188,7 @@ router.post('/shorten', (req: Request, res: Response) => {
       enableUdp?: boolean;
       skipCertVerify?: boolean;
       proxyGroups?: any[];
+      autoRegionGroup?: boolean;
     };
 
     if (!input || !target) {
@@ -205,7 +207,9 @@ router.post('/shorten', (req: Request, res: Response) => {
       regexSort,
       filterUseless,
       resolveDomain,
-      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups
+      addEmoji, deduplicate, sort, enableUdp, skipCertVerify,
+      autoRegionGroup,
+      proxyGroups: autoRegionGroup ? undefined : proxyGroups
     });
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -271,7 +275,8 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
       }
     }
 
-    const output = generator.generate(supported, resolvedRules, sub.proxyGroups);
+    const finalProxyGroups = sub.autoRegionGroup ? generateRegionGroups(supported) : sub.proxyGroups;
+    const output = generator.generate(supported, resolvedRules, finalProxyGroups);
 
     // Pass through upstream subscription-userinfo header
     if (subscriptionUserinfo) {

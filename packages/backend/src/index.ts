@@ -1,9 +1,9 @@
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import convertRouter from './routes/convert';
 import subscriptionRouter from './routes/subscription';
+import { createRateLimiter } from './core/rate-limit';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -18,20 +18,16 @@ app.use(helmet({
 }));
 
 // Global rate limit: 120 requests per minute per IP
-app.use(rateLimit({
+app.use(createRateLimiter({
   windowMs: 60 * 1000,
   max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
 }));
 
 // Stricter rate limit for conversion/shorten endpoints
-const convertLimiter = rateLimit({
+const convertLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: 'Too many conversion requests, please try again later' },
 });
 

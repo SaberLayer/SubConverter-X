@@ -4,7 +4,6 @@ import { processNodes, ProcessOptions } from '../core/processor';
 import { getGenerator, getAllFormats } from '../core/generator';
 import { getAllRules, getRule } from '../rules';
 import { TargetFormat } from '../core/types';
-import { processInput as fetchInput } from '../core/fetcher';
 import { generateRegionGroups } from '../core/region-groups';
 import { resolveNodeDomains } from '../core/resolve-domain';
 
@@ -66,9 +65,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    // Fetch URLs if input contains subscription URLs
-    const fetchedInput = await fetchInput(input);
-    const { nodes, subscriptionUserinfo } = await parseInput(fetchedInput);
+    const { nodes, subscriptionUserinfo } = await parseInput(input);
     if (nodes.length === 0) {
       res.status(400).json({ error: 'No valid proxy nodes found in input' });
       return;

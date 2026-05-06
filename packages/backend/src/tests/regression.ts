@@ -2,6 +2,10 @@ import { parseInput } from '../core/parser';
 import { getAllFormats, getGenerator } from '../core/generator';
 import { processNodes } from '../core/processor';
 import { resolveNodeDomains } from '../core/resolve-domain';
+import { generateRegionGroups } from '../core/region-groups';
+import { validateUrl } from '../core/url-safety';
+import { createRateLimiter } from '../core/rate-limit';
+import { saveSubscription, getSubscription } from '../db';
 import net from 'node:net';
 
 type TestFn = () => Promise<void> | void;
@@ -132,6 +136,93 @@ add('processor regex delete/sort and useless filter', async () => {
   assert(out.length === 2, `expected 2 nodes after filter, got ${out.length}`);
   assert(out[0].name === 'HK-SS', `expected regex-sort HK first, got ${out[0].name}`);
   assert(out[1].name === 'JP-VM', `expected regex-sort JP second, got ${out[1].name}`);
+});
+
+add('processor dedupe keeps distinct credentials on same endpoint', async () => {
+  const rawNodes = [
+    { name: 'VL-A', type: 'vless', server: '1.1.1.1', port: 443, uuid: '11111111-1111-1111-1111-111111111111', transport: 'tcp', tls: 'tls' },
+    { name: 'VL-B', type: 'vless', server: '1.1.1.1', port: 443, uuid: '22222222-2222-2222-2222-222222222222', transport: 'tcp', tls: 'tls' },
+    { name: 'VL-A-DUP', type: 'vless', server: '1.1.1.1', port: 443, uuid: '11111111-1111-1111-1111-111111111111', transport: 'tcp', tls: 'tls' },
+  ] as any;
+
+  const out = processNodes(rawNodes, { deduplicate: true });
+  assert(out.length === 2, `expected 2 distinct nodes after dedupe, got ${out.length}`);
+  assert(out.some((n) => n.name === 'VL-A'), 'expected original VL-A to be kept');
+  assert(out.some((n) => n.name === 'VL-B'), 'expected distinct UUID VL-B to be kept');
+});
+
+add('auto region groups only reference generated groups', () => {
+  const groups = generateRegionGroups([
+    { name: 'US-1', type: 'ss', server: '1.1.1.1', port: 8388, method: 'aes-128-gcm', password: 'pwd', transport: 'tcp', tls: 'none' },
+  ] as any);
+
+  const groupNames = new Set(groups.map((g) => g.name));
+  const main = groups.find((g) => g.name === '🚀 Proxy');
+  assert(main, 'missing main proxy group');
+  assert(main.proxies?.includes('🇺🇸 United States'), 'main group should include generated US group');
+  assert(!main.proxies?.includes('🇭🇰 Hong Kong'), 'main group should not include missing HK group');
+  for (const member of main.proxies || []) {
+    assert(member === 'DIRECT' || groupNames.has(member), `main group references missing member: ${member}`);
+  }
+});
+
+add('subscription storage preserves auto region group option', () => {
+  const token = `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  saveSubscription(token, {
+    input: 'ss://YWVzLTEyOC1nY206cHdk@1.1.1.1:8388#US-1',
+    target: 'clash-meta',
+    autoRegionGroup: true,
+    proxyGroups: [{ name: 'Manual', type: 'select' }],
+  });
+
+  const stored = getSubscription(token);
+  assert(stored, 'expected subscription to be stored');
+  assert(stored.autoRegionGroup === true, 'expected autoRegionGroup to be preserved');
+});
+
+add('url safety blocks private and ipv4-mapped addresses', async () => {
+  for (const url of ['http://127.0.0.1/sub', 'http://[::1]/sub', 'http://[::ffff:127.0.0.1]/sub']) {
+    let blocked = false;
+    try {
+      await validateUrl(url);
+    } catch {
+      blocked = true;
+    }
+    assert(blocked, `expected private URL to be blocked: ${url}`);
+  }
+});
+
+add('rate limiter normalizes ipv4-mapped client ip', () => {
+  const limiter = createRateLimiter({
+    windowMs: 60 * 1000,
+    max: 1,
+    message: { error: 'limited' },
+  });
+
+  function run(ip: string): number {
+    let statusCode = 200;
+    let ended = false;
+    const req = { ip } as any;
+    const res = {
+      setHeader: () => undefined,
+      status: (code: number) => {
+        statusCode = code;
+        return res;
+      },
+      json: () => {
+        ended = true;
+        return res;
+      },
+    } as any;
+    limiter(req, res, () => {
+      ended = true;
+    });
+    assert(ended, `limiter did not finish request for ${ip}`);
+    return statusCode;
+  }
+
+  assert(run('127.0.0.1') === 200, 'first request should pass');
+  assert(run('::ffff:127.0.0.1') === 429, 'mapped IPv4 should share the same rate limit bucket');
 });
 
 add('resolve domain operator', async () => {

@@ -87,6 +87,13 @@
     "tfo": "Enable TCP Fast Open",
     "scv": "Skip Certificate Verification",
     "sort": "Sort Nodes",
+    "sortNone": "Do not sort",
+    "sortByName": "Sort by name",
+    "sortByRegion": "Sort by region",
+    "keepOriginal": "Keep original",
+    "forceEnable": "Force enable",
+    "forceDisable": "Force disable",
+    "autoRegionGroup": "Generate region proxy groups",
     "deduplicate": "Deduplicate Nodes"
   },
   "result": {
@@ -102,7 +109,9 @@
     "downloadConfig": "Download Config",
     "viewConfig": "View Config",
     "generateShortUrl": "Generate Short URL",
-    "generateQrCode": "Generate QR Code"
+    "generateQrCode": "Generate QR Code",
+    "filteredOut": "{{count}} nodes filtered",
+    "skippedUnsupported": "{{count}} unsupported nodes skipped"
   },
   "preset": {
     "title": "Presets",

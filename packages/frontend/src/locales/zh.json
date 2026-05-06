@@ -87,6 +87,13 @@
     "tfo": "启用 TCP Fast Open",
     "scv": "跳过证书验证",
     "sort": "节点排序",
+    "sortNone": "不排序",
+    "sortByName": "按名称排序",
+    "sortByRegion": "按地区排序",
+    "keepOriginal": "保持原配置",
+    "forceEnable": "强制启用",
+    "forceDisable": "强制禁用",
+    "autoRegionGroup": "自动按地区生成策略组",
     "deduplicate": "节点去重"
   },
   "result": {
@@ -102,7 +109,9 @@
     "downloadConfig": "下载配置",
     "viewConfig": "查看配置",
     "generateShortUrl": "生成短链接",
-    "generateQrCode": "生成二维码"
+    "generateQrCode": "生成二维码",
+    "filteredOut": "已过滤 {{count}} 个节点",
+    "skippedUnsupported": "已跳过 {{count}} 个不支持节点"
   },
   "preset": {
     "title": "预设配置",
