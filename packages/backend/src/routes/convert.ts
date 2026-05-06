@@ -6,79 +6,40 @@ import { getAllRules, getRule } from '../rules';
 import { TargetFormat } from '../core/types';
 import { generateRegionGroups } from '../core/region-groups';
 import { resolveNodeDomains } from '../core/resolve-domain';
+import { ApiError, sendError } from '../core/api-error';
+import { parseConversionRequest } from '../core/request-schema';
 
 const router = Router();
 
-function normalizeList(v: unknown): string[] | undefined {
-  if (!v) return undefined;
-  if (Array.isArray(v)) {
-    const list = v.map((x) => String(x).trim()).filter(Boolean);
-    return list.length ? list : undefined;
-  }
-  if (typeof v === 'string') {
-    const list = v.split(',').map((x) => x.trim()).filter(Boolean);
-    return list.length ? list : undefined;
-  }
-  return undefined;
-}
-
 router.post('/', async (req: Request, res: Response) => {
   try {
+    const options = parseConversionRequest(req.body);
     const {
       input, target, ruleTemplate, include, exclude, rename,
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup
-    } = req.body as {
-      input: string;
-      target: TargetFormat;
-      ruleTemplate?: string;
-      include?: string;
-      exclude?: string;
-      rename?: string;
-      includeTypes?: string[] | string;
-      excludeTypes?: string[] | string;
-      includeRegions?: string[] | string;
-      excludeRegions?: string[] | string;
-      regexDelete?: string;
-      regexSort?: string;
-      filterUseless?: boolean;
-      resolveDomain?: boolean;
-      addEmoji?: boolean;
-      deduplicate?: boolean;
-      sort?: 'none' | 'name' | 'region';
-      enableUdp?: boolean;
-      skipCertVerify?: boolean;
-      proxyGroups?: any[];
-      autoRegionGroup?: boolean;
-    };
-
-    if (!input || !target) {
-      res.status(400).json({ error: 'Missing input or target format' });
-      return;
-    }
+    } = options;
 
     const finalTarget: TargetFormat = target === 'auto' ? 'clash-meta' : target;
     const generator = getGenerator(finalTarget);
     if (!generator) {
-      res.status(400).json({ error: `Unsupported target format: ${finalTarget}`, supported: getAllFormats() });
-      return;
+      throw new ApiError(400, 'UNSUPPORTED_TARGET', `Unsupported target format: ${finalTarget}`, { supported: getAllFormats() });
     }
 
     const { nodes, subscriptionUserinfo } = await parseInput(input);
     if (nodes.length === 0) {
-      res.status(400).json({ error: 'No valid proxy nodes found in input' });
-      return;
+      throw new ApiError(400, 'NO_VALID_NODES', 'No valid proxy nodes found in input');
     }
 
     // Apply node processing (filter/rename/emoji/dedupe/sort/global settings)
     const processOpts: ProcessOptions = {};
     if (include) processOpts.include = include;
     if (exclude) processOpts.exclude = exclude;
-    processOpts.includeTypes = normalizeList(includeTypes);
-    processOpts.excludeTypes = normalizeList(excludeTypes);
-    processOpts.includeRegions = normalizeList(includeRegions);
-    processOpts.excludeRegions = normalizeList(excludeRegions);
+    processOpts.includeTypes = includeTypes;
+    processOpts.excludeTypes = excludeTypes;
+    processOpts.includeRegions = includeRegions;
+    processOpts.excludeRegions = excludeRegions;
     if (rename) processOpts.rename = rename;
     if (regexDelete) processOpts.regexDelete = regexDelete;
     if (regexSort) processOpts.regexSort = regexSort;
@@ -119,8 +80,8 @@ router.post('/', async (req: Request, res: Response) => {
       subscriptionUserinfo,
       filteredOut: nodes.length - processed.length,
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+  } catch (err) {
+    sendError(res, err);
   }
 });
 

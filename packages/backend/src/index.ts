@@ -21,14 +21,14 @@ app.use(helmet({
 app.use(createRateLimiter({
   windowMs: 60 * 1000,
   max: 120,
-  message: { error: 'Too many requests, please try again later' },
+  message: { error: 'Too many requests, please try again later', code: 'RATE_LIMITED' },
 }));
 
 // Stricter rate limit for conversion/shorten endpoints
 const convertLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 30,
-  message: { error: 'Too many conversion requests, please try again later' },
+  message: { error: 'Too many conversion requests, please try again later', code: 'RATE_LIMITED' },
 });
 
 app.use(express.json({ limit: '5mb' }));

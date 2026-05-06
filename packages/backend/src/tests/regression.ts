@@ -5,6 +5,8 @@ import { resolveNodeDomains } from '../core/resolve-domain';
 import { generateRegionGroups } from '../core/region-groups';
 import { validateUrl } from '../core/url-safety';
 import { createRateLimiter } from '../core/rate-limit';
+import { ApiError } from '../core/api-error';
+import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 import { saveSubscription, getSubscription } from '../db';
 import net from 'node:net';
 
@@ -223,6 +225,60 @@ add('rate limiter normalizes ipv4-mapped client ip', () => {
 
   assert(run('127.0.0.1') === 200, 'first request should pass');
   assert(run('::ffff:127.0.0.1') === 429, 'mapped IPv4 should share the same rate limit bucket');
+});
+
+add('request schema validates conversion payload', () => {
+  const parsed = parseConversionRequest({
+    input: 'ss://YWVzLTEyOC1nY206cHdk@1.1.1.1:8388#US-1',
+    target: 'clash-meta',
+    includeTypes: 'ss,vmess',
+    filterUseless: true,
+    sort: 'region',
+    proxyGroups: [
+      { name: 'Manual', type: 'select', proxies: ['DIRECT'] },
+    ],
+  });
+
+  assert(parsed.target === 'clash-meta', 'target parse mismatch');
+  assert(parsed.includeTypes?.length === 2, 'includeTypes should parse CSV');
+  assert(parsed.proxyGroups?.[0].name === 'Manual', 'proxy group parse mismatch');
+});
+
+add('request schema rejects unsupported target and invalid group', () => {
+  let unsupported = false;
+  try {
+    parseConversionRequest({ input: 'x', target: 'unknown' });
+  } catch (err) {
+    unsupported = err instanceof ApiError && err.code === 'UNSUPPORTED_TARGET';
+  }
+  assert(unsupported, 'unsupported target should be rejected');
+
+  let invalidGroup = false;
+  try {
+    parseConversionRequest({
+      input: 'x',
+      target: 'clash-meta',
+      proxyGroups: [{ name: 'Bad', type: 'bad-type' }],
+    });
+  } catch (err) {
+    invalidGroup = err instanceof ApiError && err.code === 'VALIDATION_ERROR';
+  }
+  assert(invalidGroup, 'invalid proxy group should be rejected');
+});
+
+add('request schema validates direct subscription query', () => {
+  const parsed = parseDirectSubscriptionQuery({
+    url: 'https://example.com/sub',
+    target: 'auto',
+    emoji: '1',
+    dedupe: 'true',
+    sort: 'name',
+  });
+
+  assert(parsed.url === 'https://example.com/sub', 'url parse mismatch');
+  assert(parsed.target === 'auto', 'target parse mismatch');
+  assert(parsed.addEmoji === true, 'emoji query flag should parse true');
+  assert(parsed.deduplicate === true, 'dedupe query flag should parse true');
 });
 
 add('resolve domain operator', async () => {

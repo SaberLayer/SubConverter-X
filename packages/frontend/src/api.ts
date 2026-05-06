@@ -1,5 +1,26 @@
 const API_BASE = '/api';
 
+async function parseJsonResponse<T>(res: Response, fallback: string): Promise<T> {
+  const text = await res.text();
+  if (!text) throw new Error('服务器返回空响应，请检查后端是否正常运行');
+
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`服务器返回非 JSON 响应: ${text.substring(0, 200)}`);
+  }
+
+  if (!res.ok) {
+    const error = data.error;
+    if (typeof error === 'string') throw new Error(error);
+    if (error?.message) throw new Error(error.message);
+    throw new Error(fallback);
+  }
+
+  return data;
+}
+
 export interface ProxyGroup {
   name: string;
   type: 'select' | 'url-test' | 'fallback' | 'load-balance';
@@ -58,16 +79,7 @@ export async function convert(req: ConvertRequest): Promise<ConvertResponse> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   });
-  const text = await res.text();
-  if (!text) throw new Error('服务器返回空响应，请检查后端是否正常运行');
-  let data: any;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`服务器返回非 JSON 响应: ${text.substring(0, 200)}`);
-  }
-  if (!res.ok) throw new Error(data.error || 'Convert failed');
-  return data;
+  return parseJsonResponse<ConvertResponse>(res, 'Convert failed');
 }
 
 export async function shorten(req: ConvertRequest): Promise<ShortenResponse> {
@@ -76,16 +88,7 @@ export async function shorten(req: ConvertRequest): Promise<ShortenResponse> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   });
-  const text = await res.text();
-  if (!text) throw new Error('服务器返回空响应，请检查后端是否正常运行');
-  let data: any;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`服务器返回非 JSON 响应: ${text.substring(0, 200)}`);
-  }
-  if (!res.ok) throw new Error(data.error || 'Shorten failed');
-  return data;
+  return parseJsonResponse<ShortenResponse>(res, 'Shorten failed');
 }
 
 export async function getFormats(): Promise<string[]> {

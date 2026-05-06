@@ -8,6 +8,8 @@ import { getRule } from '../rules';
 import { TargetFormat } from '../core/types';
 import { resolveNodeDomains } from '../core/resolve-domain';
 import { generateRegionGroups } from '../core/region-groups';
+import { ApiError, sendError } from '../core/api-error';
+import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 
 const router = Router();
 
@@ -31,19 +33,6 @@ const CONTENT_TYPES: Record<string, string> = {
   'plain-json': 'application/json; charset=utf-8',
   'base64': 'text/plain; charset=utf-8',
 };
-
-function normalizeList(v: unknown): string[] | undefined {
-  if (!v) return undefined;
-  if (Array.isArray(v)) {
-    const list = v.map((x) => String(x).trim()).filter(Boolean);
-    return list.length ? list : undefined;
-  }
-  if (typeof v === 'string') {
-    const list = v.split(',').map((x) => x.trim()).filter(Boolean);
-    return list.length ? list : undefined;
-  }
-  return undefined;
-}
 
 function fileExt(target: string): string {
   if (target === 'singbox' || target === 'v2ray' || target === 'plain-json') return 'json';
@@ -69,30 +58,14 @@ function detectTargetFromUA(ua: string): TargetFormat | null {
 // Can be used directly as a subscription URL in proxy clients
 router.get('/sub', async (req: Request, res: Response) => {
   try {
-    const url = req.query.url as string | undefined;
-    let target = (req.query.target as string | undefined) as TargetFormat | undefined;
-    const ruleTemplate = req.query.rule as string | undefined;
-    const include = req.query.include as string | undefined;
-    const exclude = req.query.exclude as string | undefined;
-    const includeTypes = normalizeList(req.query.types || req.query.includeTypes);
-    const excludeTypes = normalizeList(req.query.excludeTypes);
-    const includeRegions = normalizeList(req.query.regions || req.query.includeRegions);
-    const excludeRegions = normalizeList(req.query.excludeRegions);
-    const rename = req.query.rename as string | undefined;
-    const regexDelete = (req.query.regexDelete || req.query.delete) as string | undefined;
-    const regexSort = req.query.regexSort as string | undefined;
-    const filterUseless = req.query.useless === 'true' || req.query.useless === '1';
-    const resolveDomain = req.query.resolveDomain === 'true' || req.query.resolveDomain === '1';
-    const addEmoji = req.query.emoji === 'true' || req.query.emoji === '1';
-    const deduplicate = req.query.dedupe === 'true' || req.query.dedupe === '1';
-    const sort = (req.query.sort as string | undefined) || 'none';
-    const enableUdp = req.query.udp === 'true' ? true : req.query.udp === 'false' ? false : undefined;
-    const skipCertVerify = req.query.skipCert === 'true' ? true : req.query.skipCert === 'false' ? false : undefined;
-
-    if (!url) {
-      res.status(400).json({ error: 'Missing url parameter' });
-      return;
-    }
+    const options = parseDirectSubscriptionQuery(req.query as Record<string, unknown>);
+    const {
+      url, ruleTemplate, include, exclude, includeTypes, excludeTypes,
+      includeRegions, excludeRegions, rename, regexDelete, regexSort,
+      filterUseless, resolveDomain, addEmoji, deduplicate, sort,
+      enableUdp, skipCertVerify
+    } = options;
+    let target = options.target;
 
     // Auto-detect target from User-Agent if not specified
     if (!target || target === 'auto') {
@@ -102,8 +75,7 @@ router.get('/sub', async (req: Request, res: Response) => {
 
     const generator = getGenerator(target);
     if (!generator) {
-      res.status(400).json({ error: `Unsupported target format: ${target}` });
-      return;
+      throw new ApiError(400, 'UNSUPPORTED_TARGET', `Unsupported target format: ${target}`);
     }
 
     // Support multiple URLs separated by |
@@ -111,8 +83,7 @@ router.get('/sub', async (req: Request, res: Response) => {
     const { nodes, subscriptionUserinfo } = await parseInput(input);
 
     if (nodes.length === 0) {
-      res.status(400).json({ error: 'No valid proxy nodes found' });
-      return;
+      throw new ApiError(400, 'NO_VALID_NODES', 'No valid proxy nodes found');
     }
 
     const maybeResolved = await resolveNodeDomains(nodes, resolveDomain);
@@ -154,55 +125,29 @@ router.get('/sub', async (req: Request, res: Response) => {
     res.set('Content-Disposition', `attachment; filename="sub.${fileExt(target)}"`);
     res.set('profile-update-interval', '12');
     res.send(output);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+  } catch (err) {
+    sendError(res, err);
   }
 });
 
 // Create short link
 router.post('/shorten', (req: Request, res: Response) => {
   try {
+    const options = parseConversionRequest(req.body);
     const {
       input, target, ruleTemplate, include, exclude, rename,
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup
-    } = req.body as {
-      input: string;
-      target: TargetFormat;
-      ruleTemplate?: string;
-      include?: string;
-      exclude?: string;
-      rename?: string;
-      includeTypes?: string[] | string;
-      excludeTypes?: string[] | string;
-      includeRegions?: string[] | string;
-      excludeRegions?: string[] | string;
-      regexDelete?: string;
-      regexSort?: string;
-      filterUseless?: boolean;
-      resolveDomain?: boolean;
-      addEmoji?: boolean;
-      deduplicate?: boolean;
-      sort?: string;
-      enableUdp?: boolean;
-      skipCertVerify?: boolean;
-      proxyGroups?: any[];
-      autoRegionGroup?: boolean;
-    };
-
-    if (!input || !target) {
-      res.status(400).json({ error: 'Missing input or target format' });
-      return;
-    }
+    } = options;
 
     const token = crypto.randomBytes(9).toString('base64url');
     saveSubscription(token, {
       input, target, ruleTemplate, include, exclude, rename,
-      includeTypes: normalizeList(includeTypes),
-      excludeTypes: normalizeList(excludeTypes),
-      includeRegions: normalizeList(includeRegions),
-      excludeRegions: normalizeList(excludeRegions),
+      includeTypes,
+      excludeTypes,
+      includeRegions,
+      excludeRegions,
       regexDelete,
       regexSort,
       filterUseless,
@@ -214,8 +159,8 @@ router.post('/shorten', (req: Request, res: Response) => {
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     res.json({ token, url: `${baseUrl}/api/sub/${token}` });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+  } catch (err) {
+    sendError(res, err);
   }
 });
 
@@ -226,8 +171,7 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
     const sub = getSubscription(token);
 
     if (!sub) {
-      res.status(404).json({ error: 'Subscription not found' });
-      return;
+      throw new ApiError(404, 'SUBSCRIPTION_NOT_FOUND', 'Subscription not found');
     }
 
     // Auto-detect target from User-Agent if needed
@@ -237,8 +181,7 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
 
     const generator = getGenerator(target);
     if (!generator) {
-      res.status(400).json({ error: `Unsupported format: ${target}` });
-      return;
+      throw new ApiError(400, 'UNSUPPORTED_TARGET', `Unsupported format: ${target}`);
     }
 
     const { nodes, subscriptionUserinfo } = await parseInput(sub.input);
@@ -287,8 +230,8 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
     res.set('Content-Disposition', `attachment; filename="sub_${token}.${fileExt(target)}"`);
     res.set('profile-update-interval', '12');
     res.send(output);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+  } catch (err) {
+    sendError(res, err);
   }
 });
 
