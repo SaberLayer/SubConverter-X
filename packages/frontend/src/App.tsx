@@ -7,6 +7,7 @@ import AdvancedOptions from './components/AdvancedOptions';
 import ProxyGroupEditor from './components/ProxyGroupEditor';
 import PresetManager from './components/PresetManager';
 import Preview from './components/Preview';
+import ShortLinkResult from './components/ShortLinkResult';
 import ThemeToggle from './components/ThemeToggle';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { convert, shorten, ConvertResponse, ShortenResponse, ProxyGroup } from './api';
@@ -198,14 +199,7 @@ export default function App() {
           </div>
         )}
 
-        {shortUrl && (
-          <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-sm">
-            <span className="text-green-700 dark:text-green-300">{t('result.subscriptionUrl')}: </span>
-            <a href={shortUrl.url} className="text-blue-600 dark:text-blue-400 underline break-all" target="_blank" rel="noreferrer">
-              {shortUrl.url}
-            </a>
-          </div>
-        )}
+        {shortUrl && <ShortLinkResult value={shortUrl} />}
 
         {result && (
           <Preview

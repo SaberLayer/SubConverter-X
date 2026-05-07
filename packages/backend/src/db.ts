@@ -5,6 +5,18 @@ const DB_PATH = process.env.DB_PATH === ':memory:'
   ? ':memory:'
   : path.resolve(process.env.DB_PATH || './data/subconverter.db');
 
+const DEFAULT_SUBSCRIPTION_TTL_DAYS = 90;
+
+function readSubscriptionTtlDays(): number {
+  const raw = process.env.SUBSCRIPTION_TTL_DAYS;
+  if (!raw) return DEFAULT_SUBSCRIPTION_TTL_DAYS;
+  const days = Number(raw);
+  if (!Number.isFinite(days) || days <= 0) return DEFAULT_SUBSCRIPTION_TTL_DAYS;
+  return Math.floor(days);
+}
+
+export const SUBSCRIPTION_TTL_DAYS = readSubscriptionTtlDays();
+
 let db: Database.Database;
 
 function getDb(): Database.Database {
@@ -95,6 +107,13 @@ export interface SubscriptionOptions {
   skipCertVerify?: boolean;
   autoRegionGroup?: boolean;
   proxyGroups?: any[];
+  createdAt?: number;
+}
+
+export interface SubscriptionRecord extends SubscriptionOptions {
+  token: string;
+  createdAt: number;
+  expiresAt: number;
 }
 
 export function saveSubscription(token: string, options: SubscriptionOptions): void {
@@ -133,7 +152,7 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
 /**
  * Delete subscriptions older than given days (default 90 days)
  */
-export function cleanupExpired(days = 90): number {
+export function cleanupExpired(days = SUBSCRIPTION_TTL_DAYS): number {
   const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
   const result = getDb().prepare('DELETE FROM subscriptions WHERE created_at < ?').run(cutoff);
   return result.changes;
@@ -145,7 +164,7 @@ function startCleanupSchedule() {
   if (cleanupStarted) return;
   cleanupStarted = true;
   const run = () => {
-    try { cleanupExpired(); } catch { /* ignore */ }
+    try { cleanupExpired(SUBSCRIPTION_TTL_DAYS); } catch { /* ignore */ }
   };
   run();
   const timer = setInterval(run, 24 * 60 * 60 * 1000);
@@ -155,14 +174,19 @@ startCleanupSchedule();
 
 export function getSubscription(token: string): SubscriptionOptions | null {
   const row = getDb().prepare(
-    `SELECT input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
-     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, auto_region_group, proxy_groups
+    `SELECT token, input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
+     regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, auto_region_group, proxy_groups, created_at
      FROM subscriptions WHERE token = ?`
   ).get(token) as any;
 
   if (!row) return null;
+  if (isExpired(row.created_at)) {
+    getDb().prepare('DELETE FROM subscriptions WHERE token = ?').run(token);
+    return null;
+  }
 
   return {
+    createdAt: row.created_at,
     input: row.input,
     target: row.target,
     ruleTemplate: row.rule_template || undefined,
@@ -185,6 +209,26 @@ export function getSubscription(token: string): SubscriptionOptions | null {
     autoRegionGroup: row.auto_region_group === 1,
     proxyGroups: row.proxy_groups ? JSON.parse(row.proxy_groups) : undefined,
   };
+}
+
+export function getSubscriptionRecord(token: string): SubscriptionRecord | null {
+  const sub = getSubscription(token);
+  if (!sub?.createdAt) return null;
+  return {
+    ...sub,
+    token,
+    createdAt: sub.createdAt,
+    expiresAt: sub.createdAt + SUBSCRIPTION_TTL_DAYS * 86400,
+  };
+}
+
+export function getSubscriptionExpiresAt(createdAtSeconds?: number): number {
+  const createdAt = createdAtSeconds || Math.floor(Date.now() / 1000);
+  return createdAt + SUBSCRIPTION_TTL_DAYS * 86400;
+}
+
+function isExpired(createdAtSeconds: number): boolean {
+  return createdAtSeconds + SUBSCRIPTION_TTL_DAYS * 86400 < Math.floor(Date.now() / 1000);
 }
 
 function parseJsonArray(raw: string | null | undefined): string[] | undefined {

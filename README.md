@@ -321,7 +321,13 @@ https://your-domain.com/api/sub?url=https://订阅链接&sort=region&include=香
 ```
 GET /api/convert/formats   # 获取支持的目标格式列表
 GET /api/convert/rules     # 获取可用的规则模板列表
+GET /api/sub/:token/info   # 获取短链元数据（不返回原始订阅内容）
+GET /api/openapi.json      # OpenAPI 3.0 JSON 文档
+GET /api/docs              # 内置 API 快速文档页面
+GET /readyz                # 就绪检查
 ```
+
+短链接默认保留 90 天，可通过环境变量 `SUBSCRIPTION_TTL_DAYS` 调整。生成短链接口会返回 `expiresAt` 和 `ttlDays`，便于前端或自动化脚本提示过期时间。
 
 ## 规则模板
 
@@ -409,6 +415,7 @@ SubConverter-X/
 | `EXTERNAL_HTTPS_PORT` | `8443` | 外部 HTTPS 访问端口 |
 | `SUBCONVERTER_IMAGE` | `ghcr.io/saberlayer/subconverter-x:latest` | 预构建镜像部署时使用的镜像 |
 | `DEPLOY_MODE` | `image` | 管理脚本使用的部署模式，`image` 为预构建镜像，`source` 为源码构建 |
+| `SUBSCRIPTION_TTL_DAYS` | `90` | 短链接订阅保留天数 |
 | `DOMAIN` | (空) | 域名（可选，配置后访问地址显示域名） |
 
 ## 部署配置

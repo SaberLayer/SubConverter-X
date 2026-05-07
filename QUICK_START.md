@@ -233,6 +233,7 @@ SQLite 数据库
 ## 📞 技术支持
 
 - 详细部署文档：查看 `DEPLOYMENT.md`
+- API 文档：部署后访问 `/api/docs`，机器可读文档为 `/api/openapi.json`
 - 问题反馈：GitHub Issues
 - 更新日志：查看 `CHANGELOG.md`
 

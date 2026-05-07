@@ -95,6 +95,9 @@ SUBCONVERTER_IMAGE=ghcr.io/saberlayer/subconverter-x:latest
 
 # 管理脚本部署模式：image 使用预构建镜像，source 从源码构建
 DEPLOY_MODE=image
+
+# 短链接订阅保留天数
+SUBSCRIPTION_TTL_DAYS=90
 ```
 
 生产环境如果要直接监听标准端口，可以改为：
@@ -140,6 +143,9 @@ docker compose -f docker-compose.image.yml ps
 curl http://localhost:8080/health
 
 # 应该返回 {"status":"ok",...}
+
+# 就绪检查
+curl http://localhost:8080/readyz
 ```
 
 浏览器访问：`http://你的服务器IP:8080`
@@ -937,7 +943,7 @@ TTL: 600
 
 1. **启用 Gzip 压缩**（Nginx 配置）
 2. **使用 CDN**（Cloudflare 免费版即可）
-3. **数据库定期清理**（删除过期短链）
+3. **数据库定期清理**（删除过期短链，默认保留 90 天，可通过 `SUBSCRIPTION_TTL_DAYS` 调整）
 4. **限制单次转换节点数**（建议不超过 1000 个）
 
 ---

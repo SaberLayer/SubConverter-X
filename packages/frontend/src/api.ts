@@ -76,6 +76,8 @@ export interface ConversionWarning {
 export interface ShortenResponse {
   token: string;
   url: string;
+  expiresAt?: number;
+  ttlDays?: number;
 }
 
 export interface RuleInfo {

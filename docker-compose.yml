@@ -6,6 +6,9 @@ services:
     environment:
       - PORT=3000
       - DB_PATH=/app/data/subconverter-x.db
+      - SUBSCRIPTION_TTL_DAYS=${SUBSCRIPTION_TTL_DAYS:-90}
+      - SUBSCRIPTION_FETCH_TIMEOUT=${SUBSCRIPTION_FETCH_TIMEOUT:-10000}
+      - RULE_FETCH_TIMEOUT=${RULE_FETCH_TIMEOUT:-8000}
     volumes:
       - data:/app/data
     restart: unless-stopped

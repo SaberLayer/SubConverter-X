@@ -9,6 +9,8 @@ import { ApiError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
 import { saveSubscription, getSubscription } from '../db';
+import { getSubscriptionExpiresAt, SUBSCRIPTION_TTL_DAYS } from '../db';
+import { buildOpenApiDocument, renderApiDocsHtml } from '../openapi';
 import net from 'node:net';
 
 type TestFn = () => Promise<void> | void;
@@ -181,6 +183,22 @@ add('subscription storage preserves auto region group option', () => {
   const stored = getSubscription(token);
   assert(stored, 'expected subscription to be stored');
   assert(stored.autoRegionGroup === true, 'expected autoRegionGroup to be preserved');
+});
+
+add('subscription ttl metadata is generated', () => {
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = getSubscriptionExpiresAt(now);
+  assert(expiresAt === now + SUBSCRIPTION_TTL_DAYS * 86400, 'subscription expiresAt should respect configured TTL');
+});
+
+add('openapi document exposes core endpoints', () => {
+  const doc = buildOpenApiDocument() as any;
+  assert(doc.openapi === '3.0.3', 'unexpected OpenAPI version');
+  assert(doc.paths['/api/convert']?.post, 'missing /api/convert operation');
+  assert(doc.paths['/api/shorten']?.post, 'missing /api/shorten operation');
+  assert(doc.paths['/api/sub/{token}']?.get, 'missing token subscription operation');
+  assert(doc.paths['/api/sub/{token}/info']?.get, 'missing token info operation');
+  assert(renderApiDocsHtml().includes('/api/openapi.json'), 'API docs HTML should link OpenAPI JSON');
 });
 
 add('url safety blocks private and ipv4-mapped addresses', async () => {

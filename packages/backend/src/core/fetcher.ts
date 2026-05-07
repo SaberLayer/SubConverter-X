@@ -1,8 +1,16 @@
 import { validateUrl } from './url-safety';
 
-const TIMEOUT_MS = 10000;
+const DEFAULT_TIMEOUT_MS = 10000;
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
+
+function readTimeoutMs(): number {
+  const raw = process.env.SUBSCRIPTION_FETCH_TIMEOUT;
+  if (!raw) return DEFAULT_TIMEOUT_MS;
+  const timeout = Number(raw);
+  if (!Number.isFinite(timeout) || timeout <= 0) return DEFAULT_TIMEOUT_MS;
+  return Math.floor(timeout);
+}
 
 export interface FetchSubscriptionResult {
   content: string;
@@ -55,7 +63,7 @@ async function readLimitedText(response: Response): Promise<string> {
 export async function fetchSubscription(url: string): Promise<FetchSubscriptionResult> {
   let currentUrl = await validateUrl(url);
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), readTimeoutMs());
 
   try {
     for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {

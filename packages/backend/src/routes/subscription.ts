@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import { saveSubscription, getSubscription } from '../db';
+import { saveSubscription, getSubscription, getSubscriptionExpiresAt, getSubscriptionRecord, SUBSCRIPTION_TTL_DAYS } from '../db';
 import { parseInput } from '../core/parser';
 import { processNodes } from '../core/processor';
 import { getGenerator } from '../core/generator';
@@ -34,6 +34,13 @@ const CONTENT_TYPES: Record<string, string> = {
   'plain-json': 'application/json; charset=utf-8',
   'base64': 'text/plain; charset=utf-8',
 };
+
+function parseToken(raw: string): string {
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(raw)) {
+    throw new ApiError(400, 'INVALID_TOKEN', 'Invalid subscription token');
+  }
+  return raw;
+}
 
 function fileExt(target: string): string {
   if (target === 'singbox' || target === 'v2ray' || target === 'plain-json') return 'json';
@@ -159,7 +166,37 @@ router.post('/shorten', (req: Request, res: Response) => {
     });
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    res.json({ token, url: `${baseUrl}/api/sub/${token}` });
+    const expiresAt = getSubscriptionExpiresAt();
+    res.json({
+      token,
+      url: `${baseUrl}/api/sub/${token}`,
+      expiresAt,
+      ttlDays: SUBSCRIPTION_TTL_DAYS,
+    });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+// Subscription metadata by token. Does not expose original input.
+router.get('/sub/:token/info', (req: Request, res: Response) => {
+  try {
+    const token = parseToken(req.params.token as string);
+    const sub = getSubscriptionRecord(token);
+
+    if (!sub) {
+      throw new ApiError(404, 'SUBSCRIPTION_NOT_FOUND', 'Subscription not found');
+    }
+
+    res.json({
+      token,
+      target: sub.target,
+      ruleTemplate: sub.ruleTemplate,
+      createdAt: sub.createdAt,
+      expiresAt: sub.expiresAt,
+      ttlDays: SUBSCRIPTION_TTL_DAYS,
+      autoRegionGroup: !!sub.autoRegionGroup,
+    });
   } catch (err) {
     sendError(res, err);
   }
@@ -168,7 +205,7 @@ router.post('/shorten', (req: Request, res: Response) => {
 // Serve subscription by token
 router.get('/sub/:token', async (req: Request, res: Response) => {
   try {
-    const token = req.params.token as string;
+    const token = parseToken(req.params.token as string);
     const sub = getSubscription(token);
 
     if (!sub) {

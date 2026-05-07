@@ -35,7 +35,15 @@ export const RULE_SOURCES: Record<string, string> = {
   'OpenAi': `${ACL4SSR_BASE}Ruleset/OpenAi.list`,
 };
 
-export async function fetchRemoteRule(url: string, timeout = 8000): Promise<string | null> {
+function readRuleFetchTimeout(): number {
+  const raw = process.env.RULE_FETCH_TIMEOUT;
+  if (!raw) return 8000;
+  const timeout = Number(raw);
+  if (!Number.isFinite(timeout) || timeout <= 0) return 8000;
+  return Math.floor(timeout);
+}
+
+export async function fetchRemoteRule(url: string, timeout = readRuleFetchTimeout()): Promise<string | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);

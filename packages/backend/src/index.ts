@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import convertRouter from './routes/convert';
 import subscriptionRouter from './routes/subscription';
 import { createRateLimiter } from './core/rate-limit';
+import { buildOpenApiDocument, renderApiDocsHtml } from './openapi';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -36,6 +37,18 @@ app.use(express.json({ limit: '5mb' }));
 // Health check — must be before other routes
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
+});
+
+app.get('/readyz', (_req, res) => {
+  res.json({ status: 'ready', timestamp: Date.now() });
+});
+
+app.get('/api/openapi.json', (_req, res) => {
+  res.json(buildOpenApiDocument());
+});
+
+app.get('/api/docs', (_req, res) => {
+  res.type('html').send(renderApiDocsHtml());
 });
 
 // API routes
