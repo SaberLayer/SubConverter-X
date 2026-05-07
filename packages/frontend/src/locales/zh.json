@@ -128,6 +128,12 @@
     "skippedUnsupported": "已跳过 {{count}} 个不支持节点",
     "warnings": "{{count}} 条兼容性提示",
     "compatibilityWarnings": "兼容性提示",
+    "compatibilityReport": "兼容性报告",
+    "targetFormat": "目标格式：{{target}}",
+    "supportedNodes": "支持 {{count}} 个节点",
+    "skippedNodes": "跳过的节点",
+    "warningSummary": "{{warnings}} 条警告，{{info}} 条提示",
+    "warningGroupCount": "{{count}} 条",
     "affectedNodes": "影响 {{count}} 个节点：{{nodes}}"
   },
   "preset": {

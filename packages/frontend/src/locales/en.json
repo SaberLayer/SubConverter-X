@@ -128,6 +128,12 @@
     "skippedUnsupported": "{{count}} unsupported nodes skipped",
     "warnings": "{{count}} compatibility warnings",
     "compatibilityWarnings": "Compatibility warnings",
+    "compatibilityReport": "Compatibility Report",
+    "targetFormat": "Target format: {{target}}",
+    "supportedNodes": "{{count}} supported nodes",
+    "skippedNodes": "Skipped nodes",
+    "warningSummary": "{{warnings}} warnings, {{info}} info",
+    "warningGroupCount": "{{count}} items",
     "affectedNodes": "{{count}} affected nodes: {{nodes}}"
   },
   "preset": {
