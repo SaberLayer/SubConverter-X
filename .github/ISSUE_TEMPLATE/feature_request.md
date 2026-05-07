@@ -1,27 +1,38 @@
 ---
-name: Feature Request
-about: Suggest a new feature or enhancement
+name: 功能建议
+about: 建议新增协议、目标格式、模板能力、规则操作或部署能力
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''
 
 ---
 
-## Feature Description
-<!-- A clear and concise description of the feature you'd like -->
+## 功能描述
+<!-- 请清楚描述你希望新增或改进什么能力 -->
 
-## Use Case
-<!-- Describe the problem this feature would solve -->
+## 使用场景
+<!-- 这个功能解决什么问题？适用于哪些客户端、协议或部署方式？ -->
 
-## Proposed Solution
-<!-- How do you think this should work? -->
+## 建议方案
+<!-- 你认为它应该如何工作？可以包含接口参数、UI 交互、配置示例或输出示例 -->
 
-## Alternatives Considered
-<!-- Have you considered any alternative solutions? -->
+## 涉及范围
+- 协议解析：是 / 否
+- 目标格式生成：是 / 否
+- 能力矩阵和 warnings：是 / 否
+- golden fixture 测试：是 / 否
+- 前端展示：是 / 否
+- 文档更新：是 / 否
 
-## Additional Context
-<!-- Add any other context, mockups, or examples here -->
+## 兼容性说明
+<!-- 如果是新增协议或目标格式，请说明哪些客户端可以完整支持，哪些只能部分兼容或无法表达 -->
 
-## Would you like to implement this feature?
-- [ ] Yes, I'd like to submit a PR
-- [ ] No, just suggesting
+## 替代方案
+<!-- 是否考虑过其他实现方式？为什么当前建议更合适？ -->
+
+## 补充信息
+<!-- 相关链接、示例节点、客户端文档、截图或其他背景信息。请注意隐藏敏感信息 -->
+
+## 是否愿意提交 PR？
+- [ ] 是，我可以提交实现
+- [ ] 否，仅提交建议

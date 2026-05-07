@@ -1,37 +1,46 @@
-## Description
-<!-- Describe your changes in detail -->
+## 变更说明
+<!-- 请详细描述本次变更做了什么，以及为什么需要这些改动 -->
 
-## Related Issue
-<!-- Link to the issue this PR addresses -->
-Fixes #(issue number)
+## 关联 Issue
+<!-- 关联本 PR 解决的问题，没有可填写“无” -->
+Fixes #
 
-## Type of Change
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
-- [ ] Code refactoring
-- [ ] Performance improvement
+## 变更类型
+- [ ] Bug 修复
+- [ ] 新功能
+- [ ] 破坏性变更
+- [ ] 文档更新
+- [ ] 代码重构
+- [ ] 性能优化
+- [ ] 部署或脚本变更
 
-## How Has This Been Tested?
-<!-- Describe the tests you ran to verify your changes -->
-- [ ] Manual testing
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Docker build test
+## 协议与兼容性影响
+- [ ] 不涉及协议或目标格式
+- [ ] 已更新协议能力矩阵
+- [ ] 已补充转换 warnings 或兼容性说明
+- [ ] 已补充 golden fixture
+- [ ] 已验证目标格式输出
+- [ ] 已更新 README / QUICK_START / DEPLOYMENT / CHANGELOG
 
-## Checklist
-- [ ] My code follows the project's code style
-- [ ] I have performed a self-review of my code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have tested that my changes work as expected
-- [ ] Backend compiles without errors (`npm run build`)
-- [ ] Frontend type checks pass (`npx tsc --noEmit`)
+## 验证方式
+<!-- 请勾选并补充实际执行过的验证命令 -->
+- [ ] 手动验证
+- [ ] `npm run build`
+- [ ] `npm run test:regression`
+- [ ] `npm audit`
+- [ ] `git diff --check`
+- [ ] Docker 构建或部署验证
 
-## Screenshots (if applicable)
-<!-- Add screenshots to demonstrate the changes -->
+## 检查清单
+- [ ] 代码风格与当前项目保持一致
+- [ ] 已自查变更范围，没有混入无关修改
+- [ ] 新增协议或生成器已配套 parser / generator / fixture 测试
+- [ ] 不会泄露订阅地址、token、UUID、密码或私钥
+- [ ] 文档、OpenAPI 或前端文案已按需同步
+- [ ] 构建和回归测试通过
 
-## Additional Notes
-<!-- Any additional information that reviewers should know -->
+## 截图
+<!-- 如果涉及前端或文档展示，请添加截图 -->
+
+## 补充说明
+<!-- 其他需要评审者注意的信息 -->

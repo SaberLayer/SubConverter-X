@@ -1,17 +1,31 @@
 # SubConverter-X 使用指南
 
+语言：简体中文 | [English](QUICK_START.en.md)
+
 ## 🎉 新功能
 
-### 1. 灵活的端口配置
+### 1. 现代协议转换能力
+支持 VLESS Reality、xHTTP/SplitHTTP、TUIC、Hysteria2、WireGuard、AnyTLS 等现代协议，并在转换结果中提示完整支持、部分兼容或不支持的目标格式。
+
+### 2. 协议兼容性报告
+前端会展示目标格式、支持节点数、跳过节点数和 warning 分组。API 响应也会返回 `warnings`，方便自动化脚本判断是否需要人工确认。
+
+### 3. 短链订阅体验
+短链接默认保留 90 天，可通过 `SUBSCRIPTION_TTL_DAYS` 调整。生成短链时会返回过期时间和本地二维码，方便导入移动端客户端。
+
+### 4. 外部配置模板和节点流水线
+支持 `configTemplate` / `configTemplateUrl` 把节点片段嵌入完整配置；支持 `operators` 按顺序执行 filter、rename、set、sort、dedupe。
+
+### 5. 灵活的端口配置
 不再强制使用 80/443 端口，可以自定义任意端口。
 
-### 2. 集成 Nginx 反向代理
+### 6. 集成 Nginx 反向代理
 Docker 部署自动包含 Nginx，无需手动配置。
 
-### 3. 中英文界面切换
+### 7. 中英文界面切换
 支持中文和英文界面，点击右上角语言按钮即可切换。
 
-### 4. 完整的域名和 SSL 支持
+### 8. 完整的域名和 SSL 支持
 提供完整的 HTTPS 配置方案，支持 Let's Encrypt 自动证书。
 
 ---
@@ -52,7 +66,7 @@ chmod +x start.sh
 5. 配置证书（HTTPS 模式：自动申请 Let's Encrypt 或手动指定路径）
 6. 确认启动
 
-全程无需手动编辑任何文件，操作完成后按回车返回主菜单。
+全程无需手动编辑任何文件，操作完成后按回车返回主菜单。需要脚本化部署时可使用 `./start.sh --yes --no-register`，预演命令时可使用 `./start.sh --dry-run`。
 
 ---
 
@@ -158,6 +172,14 @@ crontab -e
 3. 在 `packages/frontend/src/i18n.ts` 中导入并注册新语言
 4. 更新 `LanguageSwitcher.tsx` 组件以支持新语言选择
 
+### Q9: 为什么某些节点被跳过或显示兼容性提示？
+
+不同客户端能表达的协议能力不同。比如 AnyTLS 目前只在 Clash Meta/mihomo 和 sing-box 原生输出中完整支持，URI 类目标为部分兼容，Surge/QX/Loon/V2Ray JSON 会跳过。详情以 `README.md` 的协议矩阵和转换结果中的 `warnings` 为准。
+
+### Q10: 如何使用外部配置模板？
+
+在高级选项中填写远程模板 URL 或内联模板。模板支持 `{{content}}`、`{{proxies}}`、`{{proxyGroups}}`、`{{rules}}`、`{{dns}}`、`{{nodeNames}}`。远程模板会经过 SSRF 安全校验，内联模板和远程模板只能二选一。
+
 ---
 
 ## 📁 项目结构
@@ -177,8 +199,12 @@ SubConverter-X/
 ├── packages/
 │   ├── backend/              # 后端服务
 │   │   ├── src/
-│   │   │   └── core/
-│   │   │       └── emoji.ts  # 国旗识别（已修复）
+│   │   │   ├── core/
+│   │   │   │   ├── capability-matrix.ts # 协议能力矩阵
+│   │   │   │   ├── config-template.ts   # 配置模板
+│   │   │   │   ├── node-operators.ts    # 节点流水线
+│   │   │   │   └── emoji.ts             # 国旗识别
+│   │   │   └── tests/fixtures/input/    # 回归测试输入样本
 │   │   ├── dist/             # 后端构建产物
 │   │   └── public/           # npm run build 生成的前端静态文件（未提交）
 │   └── frontend/             # 前端源码
@@ -233,7 +259,10 @@ SQLite 数据库
 ## 📞 技术支持
 
 - 详细部署文档：查看 `DEPLOYMENT.md`
+- English quick start: see `QUICK_START.en.md`
 - API 文档：部署后访问 `/api/docs`，机器可读文档为 `/api/openapi.json`
+- 协议矩阵和兼容边界：查看 `README.md`
+- 测试样本：查看 `packages/backend/src/tests/fixtures/input/`
 - 问题反馈：GitHub Issues
 - 更新日志：查看 `CHANGELOG.md`
 
@@ -242,8 +271,13 @@ SQLite 数据库
 ## 🔄 版本信息
 
 - **当前版本**: v1.0.0
-- **更新日期**: 2026-05-06
+- **更新日期**: 2026-05-07
 - **主要改进**:
+  - ✅ 增加协议能力矩阵和兼容性报告
+  - ✅ 支持 AnyTLS、xHTTP、TUIC、Hysteria2、WireGuard 等现代协议能力验证
+  - ✅ 增加外部配置模板和节点操作流水线
+  - ✅ 合并 subscription-userinfo 并增强短链 TTL / 二维码体验
+  - ✅ 发布 GHCR 镜像工作流和预构建镜像部署模式
   - ✅ 修复国旗识别错误
   - ✅ 集成 Nginx 到 Docker
   - ✅ 支持自定义端口

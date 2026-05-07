@@ -1,5 +1,7 @@
 # SubConverter-X - 自建订阅转换工具
 
+语言：简体中文 | [English](README.en.md)
+
 隐私优先、协议全覆盖的自部署订阅转换工具。支持 VLESS+Reality、xHTTP、AnyTLS 等新协议，节点信息不经第三方。
 
 ## ✨ 新功能亮点
@@ -293,7 +295,10 @@ Content-Type: application/json
 ```json
 {
   "token": "abc123",
-  "url": "http://localhost:8080/api/sub/abc123"
+  "url": "http://localhost:8080/api/sub/abc123",
+  "expiresAt": 1777622400,
+  "ttlDays": 90,
+  "qrCodeDataUrl": "data:image/png;base64,..."
 }
 ```
 
@@ -349,6 +354,8 @@ https://your-domain.com/api/sub?url=https://订阅链接&target=clash-meta&templ
 直接返回转换后的配置内容。支持 User-Agent 自动识别客户端类型（Clash、Surge、Shadowrocket 等），自动切换输出格式。
 
 多个远程订阅合并时，`subscription-userinfo` 会同步合并：`upload`、`download`、`total` 求和，`expire` 取最早过期时间。直链和短链订阅响应会继续输出合并后的 `subscription-userinfo` header，`/api/convert` 额外返回结构化的 `subscriptionUserinfoData`。
+
+说明：`/api/convert` 和 `/api/shorten` 支持完整 JSON 参数，包括 `proxyGroups`、`configTemplate`、`configTemplateUrl` 和 `operators`。`/api/sub?url=...` 直链订阅只支持查询参数形式的筛选、排序、模板 URL 和基础开关；复杂的 operators 流水线建议先创建短链订阅。
 
 ### 外部配置模板
 
@@ -426,7 +433,7 @@ GET /readyz                # 就绪检查
 
 回归测试使用 `packages/backend/src/tests/fixtures/input/` 中的真实输入样本，当前包含：
 
-- `modern-mixed.txt`：VLESS Reality xHTTP、Trojan HTTPUpgrade、Hysteria2 obfs、TUIC、WireGuard、SSR。
+- `modern-mixed.txt`：VLESS Reality xHTTP、Trojan HTTPUpgrade、Hysteria2 obfs、TUIC、WireGuard、AnyTLS、SSR。
 - `messy-realworld.txt`：中文节点名、重复节点、坏行、Reality 缺省字段、gRPC 等混合场景。
 
 新增协议或生成器时，应同步补充 fixture，并在 `packages/backend/src/tests/regression.ts` 中验证解析字段、目标输出和 round-trip 行为。
@@ -465,7 +472,10 @@ SubConverter-X/
 │   │   ├── core/
 │   │   │   ├── types.ts          # ProxyNode 统一数据模型
 │   │   │   ├── parser.ts         # 解析器注册表
-│   │   │   └── generator.ts      # 生成器注册表
+│   │   │   ├── generator.ts      # 生成器注册表
+│   │   │   ├── capability-matrix.ts # 协议能力矩阵
+│   │   │   ├── config-template.ts   # 外部配置模板
+│   │   │   └── node-operators.ts    # 节点操作流水线
 │   │   ├── parsers/              # 输入解析器
 │   │   ├── generators/           # 输出生成器
 │   │   ├── rules/                # 规则模板
@@ -602,10 +612,10 @@ docker compose -f docker-compose.image.yml restart nginx
 
 ## 文档索引
 
-- **README.md** - 项目概述和功能说明（本文件）
-- **QUICK_START.md** - 快速开始指南
-- **DEPLOYMENT.md** - 详细部署文档
-- **CHANGELOG.md** - 更新日志
+- **README.md** / **README.en.md** - 项目概述和功能说明
+- **QUICK_START.md** / **QUICK_START.en.md** - 快速开始指南
+- **DEPLOYMENT.md** / **DEPLOYMENT.en.md** - 详细部署文档
+- **CHANGELOG.md** / **CHANGELOG.en.md** - 更新日志
 
 ## 贡献
 

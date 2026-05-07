@@ -1,5 +1,7 @@
 # SubConverter-X 部署指南
 
+语言：简体中文 | [English](DEPLOYMENT.en.md)
+
 本文档提供 SubConverter-X 的完整部署流程，包括 Docker 部署和手动部署两种方式。
 
 ## 📋 目录
@@ -98,6 +100,10 @@ DEPLOY_MODE=image
 
 # 短链接订阅保留天数
 SUBSCRIPTION_TTL_DAYS=90
+
+# 远程规则和远程订阅拉取超时（毫秒）
+RULE_FETCH_TIMEOUT=8000
+SUBSCRIPTION_FETCH_TIMEOUT=10000
 ```
 
 生产环境如果要直接监听标准端口，可以改为：
@@ -108,6 +114,20 @@ EXTERNAL_HTTPS_PORT=443
 ```
 
 ### 步骤 4：启动服务
+
+#### 方案 0：使用管理面板（推荐）
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+管理面板支持预构建镜像和源码构建两种模式，会自动检测端口冲突、生成 `.env`、启动服务、查看日志、更新和卸载。脚本化场景可使用：
+
+```bash
+./start.sh --yes --no-register
+./start.sh --dry-run
+```
 
 #### 方案 A：使用预构建镜像（推荐普通用户）
 
@@ -120,6 +140,8 @@ docker compose -f docker-compose.image.yml logs -f
 ```
 
 这种方式不需要在服务器上安装 Node.js，也不需要等待前端和后端源码构建。
+
+镜像默认来自 GHCR：`ghcr.io/saberlayer/subconverter-x:latest`。如果你 Fork 了项目并启用了 GitHub Actions 的 Docker Publish workflow，可以把 `.env` 中的 `SUBCONVERTER_IMAGE` 改成自己的镜像地址。
 
 #### 方案 B：从源码构建（推荐开发者）
 
@@ -146,6 +168,9 @@ curl http://localhost:8080/health
 
 # 就绪检查
 curl http://localhost:8080/readyz
+
+# API 快速文档和 OpenAPI
+curl http://localhost:8080/api/openapi.json
 ```
 
 浏览器访问：`http://你的服务器IP:8080`
@@ -570,6 +595,19 @@ docker compose -f docker-compose.image.yml pull
 docker compose -f docker-compose.image.yml up -d
 ```
 
+### 运行时数据和短链维护
+
+- SQLite 数据库默认保存在 Compose volume 的 `/app/data/subconverter-x.db`。
+- 短链订阅默认保留 90 天，可通过 `SUBSCRIPTION_TTL_DAYS` 调整。
+- 短链会保存目标格式、规则模板、策略组、外部配置模板和 operators，更新服务不会丢失这些配置。
+- 多个远程订阅合并时会合并 `subscription-userinfo`，直链和短链订阅响应会透传合并后的 header。
+
+### 配置模板注意事项
+
+- `configTemplate` 和 `configTemplateUrl` 只能二选一。
+- 远程模板 URL 会经过 SSRF 检查、大小限制、超时和重定向限制。
+- Docker/PM2 部署时，如果模板服务器在内网，请确认它不会指向本机管理端口或云厂商元数据地址。
+
 ### PM2 部署监控
 
 ```bash
@@ -772,12 +810,15 @@ pm2 logs subconverter-x   # PM2
 
 # 检查输入格式是否正确
 # 确认协议是否被目标格式支持（参考 README.md 协议兼容性矩阵）
+# 转换响应中的 warnings 会标出 UNSUPPORTED_PROTOCOL、FEATURE_PARTIAL、TRANSPORT_DOWNGRADED 等原因
 
 # 测试单个节点转换
 curl -X POST http://localhost:8080/api/convert \
   -H "Content-Type: application/json" \
   -d '{"input":"你的节点链接","target":"clash-meta"}'
 ```
+
+当前 AnyTLS 在 Clash Meta/mihomo 和 sing-box 中完整输出，在 `base64`、`shadowrocket`、`v2ray-uri`、`mixed` 中按 `anytls://` URI 部分兼容输出，Surge/QX/Loon/V2Ray JSON 会跳过。
 
 ### 8. 远程订阅拉取超时
 
@@ -828,6 +869,21 @@ docker compose -f docker-compose.image.yml up -d
 
 # 查看日志确认启动成功
 docker compose -f docker-compose.image.yml logs -f
+```
+
+### 发布自己的 GHCR 镜像
+
+项目包含 `.github/workflows/docker-publish.yml`。推送到 `main` 或创建 `v*.*.*` tag 后，GitHub Actions 会构建并发布：
+
+```text
+ghcr.io/<你的 GitHub 用户名或组织名>/subconverter-x:latest
+ghcr.io/<你的 GitHub 用户名或组织名>/subconverter-x:sha-xxxxxxx
+```
+
+Fork 用户需要在仓库设置中启用 Actions，并确保 Packages 权限允许写入。发布后在 `.env` 中设置：
+
+```env
+SUBCONVERTER_IMAGE=ghcr.io/你的用户名/subconverter-x:latest
 ```
 
 ### Docker 源码构建部署手动更新
@@ -948,6 +1004,6 @@ TTL: 600
 
 ---
 
-**文档版本**: v1.1
-**最后更新**: 2026-05-06
+**文档版本**: v1.2
+**最后更新**: 2026-05-07
 **适用版本**: SubConverter-X v1.0.0+
