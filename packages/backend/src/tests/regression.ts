@@ -10,6 +10,7 @@ import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/re
 import { analyzeConversion } from '../core/capabilities';
 import { CAPABILITY_MATRIX, getSupportedProtocolsForTarget } from '../core/capability-matrix';
 import { renderOutputWithTemplate } from '../core/template-output';
+import { applyNodeOperators } from '../core/node-operators';
 import { saveSubscription, getSubscription } from '../db';
 import { getSubscriptionExpiresAt, SUBSCRIPTION_TTL_DAYS } from '../db';
 import { buildOpenApiDocument, renderApiDocsHtml } from '../openapi';
@@ -174,6 +175,28 @@ add('processor dedupe keeps distinct credentials on same endpoint', async () => 
   assert(out.some((n) => n.name === 'VL-B'), 'expected distinct UUID VL-B to be kept');
 });
 
+add('node operators apply ordered filter rename set sort and dedupe', () => {
+  const rawNodes = [
+    { name: 'HK VLESS A', type: 'vless', server: '2.2.2.2', port: 443, uuid: '11111111-1111-1111-1111-111111111111', transport: 'xhttp', tls: 'reality' },
+    { name: 'US TROJAN', type: 'trojan', server: '1.1.1.1', port: 443, password: 'tp', transport: 'ws', tls: 'tls' },
+    { name: 'JP SS', type: 'ss', server: '3.3.3.3', port: 8388, method: 'aes-128-gcm', password: 'pwd', transport: 'tcp', tls: 'none' },
+    { name: 'HK VLESS DUP', type: 'vless', server: '2.2.2.2', port: 443, uuid: '22222222-2222-2222-2222-222222222222', transport: 'xhttp', tls: 'reality' },
+  ] as any;
+
+  const out = applyNodeOperators(rawNodes, [
+    { type: 'filter', protocols: ['vless', 'trojan'], minPort: 400, tls: ['tls', 'reality'] },
+    { type: 'rename', pattern: '^', replacement: 'OP-' },
+    { type: 'set', field: 'udp', value: true },
+    { type: 'dedupe', mode: 'endpoint' },
+    { type: 'sort', by: 'server' },
+  ]);
+
+  assert(out.length === 2, `expected 2 nodes after operators, got ${out.length}`);
+  assert(out[0].name === 'OP-US TROJAN', `expected server sort to put US trojan first, got ${out[0].name}`);
+  assert(out[1].name === 'OP-HK VLESS A', `expected endpoint dedupe to keep first HK VLESS, got ${out[1].name}`);
+  assert(out.every((node) => node.udp === true), 'set operator should force udp=true');
+});
+
 add('auto region groups only reference generated groups', () => {
   const groups = generateRegionGroups([
     { name: 'US-1', type: 'ss', server: '1.1.1.1', port: 8388, method: 'aes-128-gcm', password: 'pwd', transport: 'tcp', tls: 'none' },
@@ -197,12 +220,14 @@ add('subscription storage preserves auto region group option', () => {
     autoRegionGroup: true,
     proxyGroups: [{ name: 'Manual', type: 'select' }],
     configTemplate: 'proxies:\n{{proxies}}\n',
+    operators: [{ type: 'rename', pattern: '^', replacement: 'Saved-' }],
   });
 
   const stored = getSubscription(token);
   assert(stored, 'expected subscription to be stored');
   assert(stored.autoRegionGroup === true, 'expected autoRegionGroup to be preserved');
   assert(stored.configTemplate?.includes('{{proxies}}'), 'expected configTemplate to be preserved');
+  assert(stored.operators?.[0]?.type === 'rename', 'expected operators to be preserved');
 });
 
 add('subscription ttl metadata is generated', () => {
@@ -274,6 +299,10 @@ add('request schema validates conversion payload', () => {
     filterUseless: true,
     sort: 'region',
     configTemplate: 'proxies:\n{{proxies}}\n',
+    operators: [
+      { type: 'filter', protocols: ['ss'], minPort: 1000 },
+      { type: 'set', field: 'udp', value: true },
+    ],
     proxyGroups: [
       { name: 'Manual', type: 'select', proxies: ['DIRECT'] },
     ],
@@ -283,9 +312,10 @@ add('request schema validates conversion payload', () => {
   assert(parsed.includeTypes?.length === 2, 'includeTypes should parse CSV');
   assert(parsed.proxyGroups?.[0].name === 'Manual', 'proxy group parse mismatch');
   assert(parsed.configTemplate?.includes('{{proxies}}'), 'configTemplate parse mismatch');
+  assert(parsed.operators?.length === 2, 'operators parse mismatch');
 });
 
-add('request schema rejects unsupported target, invalid group, and template conflict', () => {
+add('request schema rejects unsupported target, invalid group, template conflict, and invalid operator', () => {
   let unsupported = false;
   try {
     parseConversionRequest({ input: 'x', target: 'unknown' });
@@ -318,6 +348,18 @@ add('request schema rejects unsupported target, invalid group, and template conf
     templateConflict = err instanceof ApiError && err.code === 'VALIDATION_ERROR';
   }
   assert(templateConflict, 'config template conflict should be rejected');
+
+  let invalidOperator = false;
+  try {
+    parseConversionRequest({
+      input: 'x',
+      target: 'clash-meta',
+      operators: [{ type: 'set', field: 'server', value: '1.1.1.1' }],
+    });
+  } catch (err) {
+    invalidOperator = err instanceof ApiError && err.code === 'VALIDATION_ERROR';
+  }
+  assert(invalidOperator, 'invalid operator should be rejected');
 });
 
 add('request schema validates direct subscription query', () => {

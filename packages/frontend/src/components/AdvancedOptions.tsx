@@ -21,6 +21,7 @@ interface Props {
   autoRegionGroup: boolean;
   configTemplate: string;
   configTemplateUrl: string;
+  operators: string;
   onIncludeChange: (v: string) => void;
   onExcludeChange: (v: string) => void;
   onRegexDeleteChange: (v: string) => void;
@@ -40,17 +41,18 @@ interface Props {
   onAutoRegionGroupChange: (v: boolean) => void;
   onConfigTemplateChange: (v: string) => void;
   onConfigTemplateUrlChange: (v: string) => void;
+  onOperatorsChange: (v: string) => void;
 }
 
 export default function AdvancedOptions({
   include, exclude, regexDelete, regexSort, filterUseless, resolveDomain,
   includeTypes, excludeTypes, includeRegions, excludeRegions, rename, addEmoji, deduplicate, sort,
-  enableUdp, skipCertVerify, autoRegionGroup, configTemplate, configTemplateUrl,
+  enableUdp, skipCertVerify, autoRegionGroup, configTemplate, configTemplateUrl, operators,
   onIncludeChange, onExcludeChange, onRegexDeleteChange, onRegexSortChange, onFilterUselessChange, onResolveDomainChange,
   onIncludeTypesChange, onExcludeTypesChange, onIncludeRegionsChange, onExcludeRegionsChange, onRenameChange,
   onAddEmojiChange, onDeduplicateChange, onSortChange,
   onEnableUdpChange, onSkipCertVerifyChange, onAutoRegionGroupChange,
-  onConfigTemplateChange, onConfigTemplateUrlChange
+  onConfigTemplateChange, onConfigTemplateUrlChange, onOperatorsChange
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -323,6 +325,21 @@ export default function AdvancedOptions({
                 {t('advanced.configTemplateHelp')}
               </p>
             </div>
+          </div>
+
+          {/* Operators Section */}
+          <div className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">{t('advanced.operators')}</h3>
+            <textarea
+              value={operators}
+              onChange={(e) => onOperatorsChange(e.target.value)}
+              placeholder={t('advanced.operatorsPlaceholder')}
+              rows={5}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('advanced.operatorsHelp')}
+            </p>
           </div>
         </div>
       )}

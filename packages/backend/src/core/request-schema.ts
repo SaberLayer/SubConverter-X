@@ -1,6 +1,7 @@
 import { getAllFormats } from './generator';
 import { ApiError } from './api-error';
-import type { ProxyGroup, TargetFormat } from './types';
+import type { ProxyGroup, ProxyProtocol, TargetFormat, TlsType, Transport } from './types';
+import type { NodeOperator, SettableNodeField } from './node-operators';
 
 export interface ConversionRequest {
   input: string;
@@ -26,6 +27,7 @@ export interface ConversionRequest {
   autoRegionGroup?: boolean;
   configTemplate?: string;
   configTemplateUrl?: string;
+  operators?: NodeOperator[];
 }
 
 export interface DirectSubscriptionQuery extends Omit<ConversionRequest, 'input' | 'target' | 'proxyGroups' | 'autoRegionGroup'> {
@@ -35,6 +37,14 @@ export interface DirectSubscriptionQuery extends Omit<ConversionRequest, 'input'
 
 const SORT_VALUES = new Set(['none', 'name', 'region']);
 const GROUP_TYPES = new Set(['select', 'url-test', 'fallback', 'load-balance']);
+const OPERATOR_TYPES = new Set(['filter', 'rename', 'set', 'sort', 'dedupe']);
+const PROTOCOL_VALUES = new Set<ProxyProtocol>(['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http']);
+const TRANSPORT_VALUES = new Set<Transport>(['tcp', 'ws', 'grpc', 'h2', 'quic', 'httpupgrade', 'xhttp', 'splithttp']);
+const TLS_VALUES = new Set<TlsType>(['none', 'tls', 'reality']);
+const SET_FIELDS = new Set<SettableNodeField>(['udp', 'skipCertVerify', 'sni', 'fingerprint', 'alpn', 'flow']);
+const OPERATOR_SORT_VALUES = new Set(['name', 'region', 'protocol', 'server', 'port']);
+const SORT_ORDERS = new Set(['asc', 'desc']);
+const DEDUPE_MODES = new Set(['fingerprint', 'endpoint', 'credential']);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -151,6 +161,111 @@ function asProxyGroups(value: unknown): ProxyGroup[] | undefined {
   return groups.length ? groups : undefined;
 }
 
+function asEnumList<T extends string>(value: unknown, field: string, supported: Set<T>): T[] | undefined {
+  const list = asList(value, field);
+  if (!list) return undefined;
+  for (const item of list) {
+    if (!supported.has(item as T)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', `Invalid ${field} item: ${item}`, { supported: Array.from(supported) });
+    }
+  }
+  return list as T[];
+}
+
+function asPort(value: unknown, field: string): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(num) || num < 1 || num > 65535) {
+    throw new ApiError(400, 'VALIDATION_ERROR', `Invalid port field: ${field}`, { field, min: 1, max: 65535 });
+  }
+  return num;
+}
+
+function asNodeOperators(value: unknown): NodeOperator[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'operators must be an array');
+  }
+  if (value.length > 20) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'Too many operators', { maxItems: 20 });
+  }
+
+  const operators = value.map((item, index): NodeOperator => {
+    if (!isObject(item)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', `Invalid operator at index ${index}`);
+    }
+    const type = asString(item.type, `operators[${index}].type`, true)!;
+    if (!OPERATOR_TYPES.has(type)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', `Invalid operator type: ${type}`, { supported: Array.from(OPERATOR_TYPES) });
+    }
+
+    if (type === 'filter') {
+      const minPort = asPort(item.minPort, `operators[${index}].minPort`);
+      const maxPort = asPort(item.maxPort, `operators[${index}].maxPort`);
+      if (minPort !== undefined && maxPort !== undefined && minPort > maxPort) {
+        throw new ApiError(400, 'VALIDATION_ERROR', 'operator minPort cannot be greater than maxPort');
+      }
+      return {
+        type,
+        include: asRegexString(item.include, `operators[${index}].include`),
+        exclude: asRegexString(item.exclude, `operators[${index}].exclude`),
+        protocols: asEnumList(item.protocols, `operators[${index}].protocols`, PROTOCOL_VALUES),
+        transports: asEnumList(item.transports, `operators[${index}].transports`, TRANSPORT_VALUES),
+        tls: asEnumList(item.tls, `operators[${index}].tls`, TLS_VALUES),
+        regions: asList(item.regions, `operators[${index}].regions`)?.map((code) => code.toUpperCase()),
+        minPort,
+        maxPort,
+      };
+    }
+
+    if (type === 'rename') {
+      return {
+        type,
+        pattern: asRegexString(item.pattern, `operators[${index}].pattern`) || '',
+        replacement: asString(item.replacement, `operators[${index}].replacement`) || '',
+      };
+    }
+
+    if (type === 'set') {
+      const field = asString(item.field, `operators[${index}].field`, true)!;
+      if (!SET_FIELDS.has(field as SettableNodeField)) {
+        throw new ApiError(400, 'VALIDATION_ERROR', `Invalid set field: ${field}`, { supported: Array.from(SET_FIELDS) });
+      }
+      const value = (item as Record<string, unknown>).value;
+      if (value === undefined) {
+        throw new ApiError(400, 'VALIDATION_ERROR', `Missing required field: operators[${index}].value`);
+      }
+      if (field === 'udp' || field === 'skipCertVerify') {
+        return { type, field: field as SettableNodeField, value: asBoolean(value, `operators[${index}].value`) ?? false };
+      }
+      if (field === 'alpn') {
+        return { type, field: 'alpn', value: asList(value, `operators[${index}].value`) || [] };
+      }
+      return { type, field: field as SettableNodeField, value: asString(value, `operators[${index}].value`) || '' };
+    }
+
+    if (type === 'sort') {
+      const by = asString(item.by, `operators[${index}].by`, true)!;
+      if (!OPERATOR_SORT_VALUES.has(by)) {
+        throw new ApiError(400, 'VALIDATION_ERROR', `Invalid operator sort field: ${by}`, { supported: Array.from(OPERATOR_SORT_VALUES) });
+      }
+      const order = asString(item.order, `operators[${index}].order`);
+      if (order && !SORT_ORDERS.has(order)) {
+        throw new ApiError(400, 'VALIDATION_ERROR', `Invalid operator sort order: ${order}`, { supported: Array.from(SORT_ORDERS) });
+      }
+      return { type, by: by as any, order: order as any };
+    }
+
+    const mode = asString(item.mode, `operators[${index}].mode`);
+    if (mode && !DEDUPE_MODES.has(mode)) {
+      throw new ApiError(400, 'VALIDATION_ERROR', `Invalid dedupe mode: ${mode}`, { supported: Array.from(DEDUPE_MODES) });
+    }
+    return { type: 'dedupe', mode: mode as any };
+  });
+
+  return operators.length ? operators : undefined;
+}
+
 export function parseConversionRequest(body: unknown): ConversionRequest {
   if (!isObject(body)) {
     throw new ApiError(400, 'VALIDATION_ERROR', 'Request body must be a JSON object');
@@ -191,6 +306,7 @@ export function parseConversionRequest(body: unknown): ConversionRequest {
     autoRegionGroup: asBoolean(body.autoRegionGroup, 'autoRegionGroup'),
     configTemplate,
     configTemplateUrl,
+    operators: asNodeOperators(body.operators),
   };
 }
 

@@ -54,6 +54,7 @@ export interface ConvertRequest {
   autoRegionGroup?: boolean;
   configTemplate?: string;
   configTemplateUrl?: string;
+  operators?: any[];
 }
 
 export interface ConvertResponse {

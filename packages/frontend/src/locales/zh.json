@@ -100,7 +100,10 @@
     "configTemplateUrlPlaceholder": "https://example.com/template.yaml",
     "configTemplateInline": "内联模板",
     "configTemplatePlaceholder": "mixed-port: 7890\nproxies:\n{{proxies}}\nproxy-groups:\n{{proxyGroups}}\nrules:\n{{rules}}",
-    "configTemplateHelp": "支持 {{content}}、{{proxies}}、{{proxyGroups}}、{{rules}}、{{dns}}、{{nodeNames}}。内联模板和远程模板二选一。"
+    "configTemplateHelp": "支持 {{content}}、{{proxies}}、{{proxyGroups}}、{{rules}}、{{dns}}、{{nodeNames}}。内联模板和远程模板二选一。",
+    "operators": "节点操作流水线",
+    "operatorsPlaceholder": "[\n  { \"type\": \"filter\", \"protocols\": [\"vless\", \"trojan\"] },\n  { \"type\": \"rename\", \"pattern\": \"^\", \"replacement\": \"Auto-\" },\n  { \"type\": \"set\", \"field\": \"udp\", \"value\": true }\n]",
+    "operatorsHelp": "JSON 数组，按顺序执行。支持 filter、rename、set、sort、dedupe。"
   },
   "result": {
     "title": "转换结果",

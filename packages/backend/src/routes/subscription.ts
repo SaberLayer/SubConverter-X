@@ -12,6 +12,7 @@ import { ApiError, sendError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
 import { renderOutputWithTemplate } from '../core/template-output';
+import { applyNodeOperators } from '../core/node-operators';
 
 const router = Router();
 
@@ -72,7 +73,7 @@ router.get('/sub', async (req: Request, res: Response) => {
       url, ruleTemplate, include, exclude, includeTypes, excludeTypes,
       includeRegions, excludeRegions, rename, regexDelete, regexSort,
       filterUseless, resolveDomain, addEmoji, deduplicate, sort,
-      enableUdp, skipCertVerify, configTemplate, configTemplateUrl
+      enableUdp, skipCertVerify, configTemplate, configTemplateUrl, operators
     } = options;
     let target = options.target;
 
@@ -96,7 +97,7 @@ router.get('/sub', async (req: Request, res: Response) => {
     }
 
     const maybeResolved = await resolveNodeDomains(nodes, resolveDomain);
-    const processed = processNodes(maybeResolved, {
+    const processed = applyNodeOperators(processNodes(maybeResolved, {
       include: include || undefined,
       exclude: exclude || undefined,
       includeTypes,
@@ -112,7 +113,7 @@ router.get('/sub', async (req: Request, res: Response) => {
       sort: sort as any,
       enableUdp,
       skipCertVerify,
-    });
+    }), operators);
 
     const { supported } = analyzeConversion(target, processed, generator.supportedProtocols);
 
@@ -154,7 +155,7 @@ router.post('/shorten', (req: Request, res: Response) => {
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup,
-      configTemplate, configTemplateUrl
+      configTemplate, configTemplateUrl, operators
     } = options;
 
     const token = crypto.randomBytes(9).toString('base64url');
@@ -172,7 +173,8 @@ router.post('/shorten', (req: Request, res: Response) => {
       autoRegionGroup,
       proxyGroups: autoRegionGroup ? undefined : proxyGroups,
       configTemplate,
-      configTemplateUrl
+      configTemplateUrl,
+      operators
     });
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -254,8 +256,9 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
       enableUdp: sub.enableUdp,
       skipCertVerify: sub.skipCertVerify,
     });
+    const operated = applyNodeOperators(processed, sub.operators);
 
-    const { supported } = analyzeConversion(target, processed, generator.supportedProtocols);
+    const { supported } = analyzeConversion(target, operated, generator.supportedProtocols);
 
     // Resolve rule template ID to actual rules
     let resolvedRules: string | undefined;

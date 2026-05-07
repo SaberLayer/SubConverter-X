@@ -229,7 +229,14 @@ Content-Type: application/json
 
   // 外部配置模板
   "configTemplateUrl": "https://example.com/template.yaml",
-  "configTemplate": "mixed-port: 7890\nproxies:\n{{proxies}}\nrules:\n{{rules}}"
+  "configTemplate": "mixed-port: 7890\nproxies:\n{{proxies}}\nrules:\n{{rules}}",
+
+  // 节点操作流水线
+  "operators": [
+    { "type": "filter", "protocols": ["vless", "trojan"] },
+    { "type": "rename", "pattern": "^", "replacement": "OP-" },
+    { "type": "set", "field": "udp", "value": true }
+  ]
 }
 ```
 
@@ -363,6 +370,14 @@ proxy-groups:
 rules:
 {{rules}}
 ```
+
+`operators` 是按顺序执行的节点处理流水线，目前支持：
+
+- `filter`：按协议、传输、TLS、地区、端口、名称筛选
+- `rename`：按正则重命名
+- `set`：批量修改 `udp`、`skipCertVerify`、`sni`、`fingerprint`、`alpn`、`flow`
+- `sort`：按名称、地区、协议、服务器、端口排序
+- `dedupe`：按 `fingerprint`、`endpoint` 或 `credential` 去重
 
 ### 辅助接口
 

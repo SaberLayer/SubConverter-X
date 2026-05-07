@@ -27,6 +27,7 @@ export interface ConfigPreset {
     proxyGroups?: ProxyGroup[];
     configTemplate?: string;
     configTemplateUrl?: string;
+    operators?: string;
   };
   createdAt: number;
 }

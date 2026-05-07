@@ -10,6 +10,7 @@ import { ApiError, sendError } from '../core/api-error';
 import { parseConversionRequest } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
 import { renderOutputWithTemplate } from '../core/template-output';
+import { applyNodeOperators } from '../core/node-operators';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.post('/', async (req: Request, res: Response) => {
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup,
-      configTemplate, configTemplateUrl
+      configTemplate, configTemplateUrl, operators
     } = options;
 
     const finalTarget: TargetFormat = target === 'auto' ? 'clash-meta' : target;
@@ -53,7 +54,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (enableUdp !== undefined) processOpts.enableUdp = enableUdp;
     if (skipCertVerify !== undefined) processOpts.skipCertVerify = skipCertVerify;
     const maybeResolved = await resolveNodeDomains(nodes, resolveDomain);
-    const processed = processNodes(maybeResolved, processOpts);
+    const processed = applyNodeOperators(processNodes(maybeResolved, processOpts), operators);
 
     const { supported, skipped, warnings } = analyzeConversion(finalTarget, processed, generator.supportedProtocols);
 

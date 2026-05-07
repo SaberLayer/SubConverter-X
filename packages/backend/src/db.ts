@@ -55,6 +55,7 @@ function getDb(): Database.Database {
         proxy_groups TEXT,
         config_template TEXT,
         config_template_url TEXT,
+        operators TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `);
@@ -82,6 +83,7 @@ function getDb(): Database.Database {
     if (!colNames.has('proxy_groups')) db.exec('ALTER TABLE subscriptions ADD COLUMN proxy_groups TEXT');
     if (!colNames.has('config_template')) db.exec('ALTER TABLE subscriptions ADD COLUMN config_template TEXT');
     if (!colNames.has('config_template_url')) db.exec('ALTER TABLE subscriptions ADD COLUMN config_template_url TEXT');
+    if (!colNames.has('operators')) db.exec('ALTER TABLE subscriptions ADD COLUMN operators TEXT');
 
     // Index for cleanup queries
     db.exec('CREATE INDEX IF NOT EXISTS idx_subscriptions_created_at ON subscriptions(created_at)');
@@ -113,6 +115,7 @@ export interface SubscriptionOptions {
   proxyGroups?: any[];
   configTemplate?: string;
   configTemplateUrl?: string;
+  operators?: any[];
   createdAt?: number;
 }
 
@@ -127,8 +130,8 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
     `INSERT OR REPLACE INTO subscriptions
     (token, input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
      regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, auto_region_group,
-     proxy_groups, config_template, config_template_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     proxy_groups, config_template, config_template_url, operators)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   stmt.run(
     token,
@@ -154,7 +157,8 @@ export function saveSubscription(token: string, options: SubscriptionOptions): v
     options.autoRegionGroup ? 1 : 0,
     options.proxyGroups ? JSON.stringify(options.proxyGroups) : null,
     options.configTemplate || null,
-    options.configTemplateUrl || null
+    options.configTemplateUrl || null,
+    options.operators?.length ? JSON.stringify(options.operators) : null
   );
 }
 
@@ -185,7 +189,7 @@ export function getSubscription(token: string): SubscriptionOptions | null {
   const row = getDb().prepare(
     `SELECT token, input, target, rule_template, include_filter, exclude_filter, include_types, exclude_types, include_regions, exclude_regions, rename_rules,
      regex_delete, regex_sort, filter_useless, resolve_domain, add_emoji, deduplicate, sort_mode, enable_udp, skip_cert_verify, auto_region_group,
-     proxy_groups, config_template, config_template_url, created_at
+     proxy_groups, config_template, config_template_url, operators, created_at
      FROM subscriptions WHERE token = ?`
   ).get(token) as any;
 
@@ -220,6 +224,7 @@ export function getSubscription(token: string): SubscriptionOptions | null {
     proxyGroups: row.proxy_groups ? JSON.parse(row.proxy_groups) : undefined,
     configTemplate: row.config_template || undefined,
     configTemplateUrl: row.config_template_url || undefined,
+    operators: row.operators ? JSON.parse(row.operators) : undefined,
   };
 }
 

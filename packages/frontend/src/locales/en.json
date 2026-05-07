@@ -100,7 +100,10 @@
     "configTemplateUrlPlaceholder": "https://example.com/template.yaml",
     "configTemplateInline": "Inline Template",
     "configTemplatePlaceholder": "mixed-port: 7890\nproxies:\n{{proxies}}\nproxy-groups:\n{{proxyGroups}}\nrules:\n{{rules}}",
-    "configTemplateHelp": "Supports {{content}}, {{proxies}}, {{proxyGroups}}, {{rules}}, {{dns}}, and {{nodeNames}}. Use either inline or remote template."
+    "configTemplateHelp": "Supports {{content}}, {{proxies}}, {{proxyGroups}}, {{rules}}, {{dns}}, and {{nodeNames}}. Use either inline or remote template.",
+    "operators": "Node Operators",
+    "operatorsPlaceholder": "[\n  { \"type\": \"filter\", \"protocols\": [\"vless\", \"trojan\"] },\n  { \"type\": \"rename\", \"pattern\": \"^\", \"replacement\": \"Auto-\" },\n  { \"type\": \"set\", \"field\": \"udp\", \"value\": true }\n]",
+    "operatorsHelp": "JSON array executed in order. Supports filter, rename, set, sort, and dedupe."
   },
   "result": {
     "title": "Conversion Result",

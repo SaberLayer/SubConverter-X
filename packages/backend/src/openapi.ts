@@ -45,6 +45,11 @@ const conversionRequestSchema = {
       type: 'string',
       description: 'Optional remote full-config template URL. SSRF checks apply before fetching.',
     },
+    operators: {
+      type: 'array',
+      description: 'Ordered node operation pipeline. Supported types: filter, rename, set, sort, dedupe.',
+      items: { type: 'object' },
+    },
     proxyGroups: {
       type: 'array',
       items: {

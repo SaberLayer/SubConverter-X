@@ -38,6 +38,7 @@ export default function App() {
   const [proxyGroups, setProxyGroups] = useState<ProxyGroup[]>([]);
   const [configTemplate, setConfigTemplate] = useState('');
   const [configTemplateUrl, setConfigTemplateUrl] = useState('');
+  const [operators, setOperators] = useState('');
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [shortUrl, setShortUrl] = useState<ShortenResponse | null>(null);
   const [error, setError] = useState('');
@@ -46,7 +47,7 @@ export default function App() {
   const currentConfig = {
     target, ruleTemplate, include, exclude, regexDelete, regexSort, filterUseless, resolveDomain,
     includeTypes, excludeTypes, includeRegions, excludeRegions, rename,
-    addEmoji, deduplicate, sort, autoRegionGroup, proxyGroups, configTemplate, configTemplateUrl,
+    addEmoji, deduplicate, sort, autoRegionGroup, proxyGroups, configTemplate, configTemplateUrl, operators,
     ...(enableUdp !== undefined && { enableUdp }),
     ...(skipCertVerify !== undefined && { skipCertVerify }),
   };
@@ -74,6 +75,7 @@ export default function App() {
     setProxyGroups(Array.isArray(config.proxyGroups) ? config.proxyGroups : []);
     setConfigTemplate(config.configTemplate || '');
     setConfigTemplateUrl(config.configTemplateUrl || '');
+    setOperators(config.operators || '');
   };
 
   const buildRequest = () => {
@@ -99,6 +101,7 @@ export default function App() {
     if (proxyGroups.length > 0 && !autoRegionGroup) req.proxyGroups = proxyGroups;
     if (configTemplate.trim()) req.configTemplate = configTemplate;
     if (configTemplateUrl.trim()) req.configTemplateUrl = configTemplateUrl.trim();
+    if (operators.trim()) req.operators = JSON.parse(operators);
     return req;
   };
 
@@ -164,6 +167,7 @@ export default function App() {
           autoRegionGroup={autoRegionGroup}
           configTemplate={configTemplate}
           configTemplateUrl={configTemplateUrl}
+          operators={operators}
           onIncludeChange={setInclude} onExcludeChange={setExclude}
           onRegexDeleteChange={setRegexDelete} onRegexSortChange={setRegexSort}
           onFilterUselessChange={setFilterUseless} onResolveDomainChange={setResolveDomain}
@@ -176,6 +180,7 @@ export default function App() {
           onAutoRegionGroupChange={setAutoRegionGroup}
           onConfigTemplateChange={setConfigTemplate}
           onConfigTemplateUrlChange={setConfigTemplateUrl}
+          onOperatorsChange={setOperators}
         />
 
         <ProxyGroupEditor
