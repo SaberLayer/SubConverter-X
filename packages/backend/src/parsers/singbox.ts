@@ -9,6 +9,7 @@ const SUPPORTED_TYPES: Record<string, ProxyProtocol> = {
   hysteria2: 'hysteria2',
   tuic: 'tuic',
   wireguard: 'wireguard',
+  anytls: 'anytls',
 };
 
 function parseTransport(transport: Record<string, any> | undefined): {
@@ -200,6 +201,15 @@ function parseSingboxOutbound(outbound: Record<string, any>): ProxyNode | null {
       node.preSharedKey = outbound.pre_shared_key;
       node.mtu = outbound.mtu;
       node.reservedBytes = outbound.reserved;
+      break;
+    }
+
+    case 'anytls': {
+      node.password = outbound.password;
+      node.tls = 'tls';
+      node.idleSessionCheckInterval = outbound.idle_session_check_interval;
+      node.idleSessionTimeout = outbound.idle_session_timeout;
+      node.minIdleSession = outbound.min_idle_session;
       break;
     }
   }

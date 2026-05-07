@@ -170,6 +170,7 @@
     "hysteria": "Hysteria",
     "hysteria2": "Hysteria2",
     "tuic": "TUIC",
+    "anytls": "AnyTLS",
     "http": "HTTP",
     "socks5": "SOCKS5"
   },

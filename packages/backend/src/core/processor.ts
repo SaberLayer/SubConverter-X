@@ -264,6 +264,8 @@ function isUsableNode(node: ProxyNode): boolean {
       return !!(node.uuid && node.password);
     case 'wireguard':
       return !!(node.privateKey && node.publicKey);
+    case 'anytls':
+      return !!node.password;
     case 'socks':
     case 'http':
       return true;

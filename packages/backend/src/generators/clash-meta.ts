@@ -172,6 +172,19 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
       if (node.peers) p.peers = node.peers;
       return p;
     }
+    case 'anytls': {
+      const p: Record<string, unknown> = {
+        ...base, type: 'anytls', password: node.password,
+      };
+      if (node.sni) p.sni = node.sni;
+      if (node.skipCertVerify) p['skip-cert-verify'] = true;
+      if (node.fingerprint) p['client-fingerprint'] = node.fingerprint;
+      if (node.alpn) p.alpn = node.alpn;
+      if (node.idleSessionCheckInterval) p['idle-session-check-interval'] = node.idleSessionCheckInterval;
+      if (node.idleSessionTimeout) p['idle-session-timeout'] = node.idleSessionTimeout;
+      if (node.minIdleSession) p['min-idle-session'] = node.minIdleSession;
+      return p;
+    }
     case 'hysteria': {
       const p: Record<string, unknown> = {
         ...base, type: 'hysteria',
@@ -240,7 +253,7 @@ function getDefaultRules(ruleTemplate?: string): string[] {
 
 export const clashMetaGenerator: Generator = {
   id: 'clash-meta' as TargetFormat,
-  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'] as ProxyProtocol[],
+  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'anytls', 'socks', 'http'] as ProxyProtocol[],
 
   generate(nodes: ProxyNode[], ruleTemplate?: string, proxyGroups?: ProxyGroup[]): string {
     const filtered = nodes.filter(n => this.supportedProtocols.includes(n.type));

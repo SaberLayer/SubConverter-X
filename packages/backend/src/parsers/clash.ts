@@ -4,7 +4,7 @@ import JSON5 from 'json5';
 
 function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
   const type = proxy.type as string;
-  if (!['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard'].includes(type)) {
+  if (!['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'anytls'].includes(type)) {
     return null;
   }
 
@@ -188,6 +188,19 @@ function parseClashProxy(proxy: Record<string, any>): ProxyNode | null {
       node.mtu = proxy.mtu;
       node.reservedBytes = proxy.reserved;
       node.peers = proxy.peers;
+      break;
+    }
+
+    case 'anytls': {
+      node.password = proxy.password;
+      node.tls = 'tls';
+      node.sni = proxy.sni ?? proxy.servername;
+      node.skipCertVerify = proxy['skip-cert-verify'];
+      node.fingerprint = proxy['client-fingerprint'];
+      node.alpn = proxy.alpn;
+      node.idleSessionCheckInterval = proxy['idle-session-check-interval'];
+      node.idleSessionTimeout = proxy['idle-session-timeout'];
+      node.minIdleSession = proxy['min-idle-session'];
       break;
     }
   }

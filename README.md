@@ -1,6 +1,6 @@
 # SubConverter-X - 自建订阅转换工具
 
-隐私优先、协议全覆盖的自部署订阅转换工具。支持 VLESS+Reality+XTLS 等新协议，节点信息不经第三方。
+隐私优先、协议全覆盖的自部署订阅转换工具。支持 VLESS+Reality、xHTTP、AnyTLS 等新协议，节点信息不经第三方。
 
 ## ✨ 新功能亮点
 
@@ -99,6 +99,7 @@ npm run dev:frontend
 | Hysteria2 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 不支持 |
 | TUIC | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 不支持 |
 | WireGuard | 完整 | 完整 | 部分 | 部分 | 部分 | 部分 | 部分 | 不支持 |
+| AnyTLS | 完整 | 完整 | 完整 | 不支持 | 不支持 | 部分 | 不支持 | 不支持 |
 | SOCKS5 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
 | HTTP/HTTPS | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
 
@@ -109,6 +110,7 @@ npm run dev:frontend
 - Hysteria2 obfs：Clash Meta、sing-box、Surge、QX、Shadowrocket/Base64、Loon 会保留 salamander obfs password。
 - TUIC：会保留 UUID、password、SNI、ALPN、congestion control 与 UDP relay mode；具体客户端字段名按目标格式映射。
 - WireGuard：多数客户端需要本地地址、peer、allowed IP 等上下文。当前输出会保留 private/public/pre-shared key、MTU、reserved bytes 等基础字段，但部分目标会附带 `FEATURE_PARTIAL`。
+- AnyTLS：Clash Meta/mihomo 与 sing-box 可输出原生 AnyTLS 字段；URI 类目标会输出 `anytls://` 兼容链接，SNI、ALPN、fingerprint 和会话参数仍需目标客户端确认支持。
 - Hysteria v1：Clash Meta 与 sing-box 可表达基础字段；URI 类输出为兼容格式，obfs 等细节需要在目标客户端确认。
 
 ### 兼容性提示

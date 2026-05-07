@@ -50,12 +50,13 @@ add('parse mixed URI input', async () => {
     'vless://11111111-1111-1111-1111-111111111111@2.2.2.2:443?security=tls&type=xhttp&path=%2Fedge&host=cdn.example.com&mode=auto&sni=sn.example.com#VLESS-XHTTP',
     'trojan://pass@3.3.3.3:443?type=httpupgrade&path=%2Fup&host=up.example.com&sni=tr.example.com#TROJAN-UPGRADE',
     'hysteria2://hy2pass@4.4.4.4:443?sni=hy.example.com&obfs=salamander&obfs-password=obfsp#HY2-NODE',
+    'anytls://anypass@4.4.4.5:443?sni=any.example.com&insecure=1#ANYTLS-NODE',
     'socks5://user:pass@5.5.5.5:1080#SOCKS-NODE',
     'https://huser:hpass@6.6.6.6:443#HTTP-NODE',
   ].join('\n');
 
   const { nodes } = await parseInput(input);
-  assert(nodes.length >= 6, `expected >=6 nodes, got ${nodes.length}`);
+  assert(nodes.length >= 7, `expected >=7 nodes, got ${nodes.length}`);
 });
 
 add('parse qx/loon/surge style lines', async () => {
@@ -96,6 +97,7 @@ add('generate all formats non-empty', async () => {
     'hysteria2://hy@1.1.1.5:443?sni=hy.example.com&obfs=salamander&obfs-password=pass#HY2',
     'tuic://11111111-1111-1111-1111-111111111111:tp@1.1.1.6:443?congestion_control=bbr&sni=tu.example.com#TUIC',
     'wireguard://pvt@1.1.1.7:51820?publickey=pub#WG',
+    'anytls://anypass@1.1.1.10:443?sni=any.example.com&insecure=1#ANYTLS',
     'socks5://u:p@1.1.1.8:1080#SOCKS',
     'http://u:p@1.1.1.9:8080#HTTP',
   ].join('\n');
@@ -505,9 +507,35 @@ add('capability matrix matches generator protocol filters', () => {
   }
 });
 
+add('AnyTLS capability matrix reports support boundaries', () => {
+  const nodes = [{
+    name: 'ANYTLS-CAP',
+    type: 'anytls',
+    server: 'any.example.com',
+    port: 443,
+    password: 'any-pass',
+    transport: 'tcp',
+    tls: 'tls',
+    sni: 'any.example.com',
+  }] as any;
+
+  const clash = analyzeConversion('clash-meta', nodes, mustGetGenerator('clash-meta').supportedProtocols);
+  assert(clash.supported.length === 1, 'clash-meta should support AnyTLS');
+  assert(!clash.warnings.some((w) => w.protocol === 'anytls' && w.code === 'FEATURE_PARTIAL'), 'clash-meta AnyTLS should be full support');
+
+  const uri = analyzeConversion('base64', nodes, mustGetGenerator('base64').supportedProtocols);
+  assert(uri.supported.length === 1, 'base64 should keep AnyTLS URI output');
+  assert(uri.warnings.some((w) => w.protocol === 'anytls' && w.code === 'FEATURE_PARTIAL'), 'base64 AnyTLS should be marked partial');
+
+  const qx = analyzeConversion('quantumultx', nodes, mustGetGenerator('quantumultx').supportedProtocols);
+  assert(qx.supported.length === 0, 'quantumultx should not support AnyTLS');
+  assert(qx.skipped.some((item) => item.includes('ANYTLS-CAP')), 'quantumultx should skip AnyTLS node');
+  assert(qx.warnings.some((w) => w.protocol === 'anytls' && w.code === 'UNSUPPORTED_PROTOCOL'), 'quantumultx should warn unsupported AnyTLS');
+});
+
 add('golden fixture parses modern protocol details', async () => {
   const { nodes } = await parseInput(goldenFixtureInput);
-  assert(nodes.length === 6, `expected 6 golden fixture nodes, got ${nodes.length}`);
+  assert(nodes.length === 7, `expected 7 golden fixture nodes, got ${nodes.length}`);
 
   const vless = nodes.find((n) => n.name === 'VL-REALITY-XHTTP');
   assert(vless, 'missing VLESS Reality xHTTP node');
@@ -543,6 +571,17 @@ add('golden fixture parses modern protocol details', async () => {
   assert(wireguard.preSharedKey === 'wg-psk', `expected WireGuard pre-shared key, got ${wireguard.preSharedKey}`);
   assert(wireguard.mtu === 1420, `expected WireGuard MTU 1420, got ${wireguard.mtu}`);
   assert(wireguard.reservedBytes?.join(',') === '1,2,3', `expected WireGuard reserved bytes, got ${wireguard.reservedBytes}`);
+
+  const anytls = nodes.find((n) => n.name === 'ANYTLS-TLS');
+  assert(anytls?.type === 'anytls', 'missing AnyTLS node');
+  assert(anytls.password === 'any-pass', `expected AnyTLS password, got ${anytls.password}`);
+  assert(anytls.sni === 'any.example.com', `expected AnyTLS SNI, got ${anytls.sni}`);
+  assert(anytls.fingerprint === 'chrome', `expected AnyTLS fingerprint, got ${anytls.fingerprint}`);
+  assert(anytls.skipCertVerify === true, 'expected AnyTLS insecure flag');
+  assert(anytls.alpn?.join(',') === 'h2,http/1.1', `expected AnyTLS ALPN, got ${anytls.alpn}`);
+  assert(anytls.idleSessionCheckInterval === '30s', `expected AnyTLS idle check interval, got ${anytls.idleSessionCheckInterval}`);
+  assert(anytls.idleSessionTimeout === '30s', `expected AnyTLS idle timeout, got ${anytls.idleSessionTimeout}`);
+  assert(anytls.minIdleSession === 2, `expected AnyTLS min idle session, got ${anytls.minIdleSession}`);
 
   const ssr = nodes.find((n) => n.name === 'SSR-Fix');
   assert(ssr?.type === 'ssr', 'missing SSR node');
@@ -588,6 +627,17 @@ add('golden fixture generates clash-meta advanced fields', async () => {
   assert(wg?.['pre-shared-key'] === 'wg-psk', 'clash-meta lost WireGuard pre-shared key');
   assert(wg?.reserved?.join(',') === '1,2,3', 'clash-meta lost WireGuard reserved bytes');
 
+  const anytls = proxies.find((p) => p.name === 'ANYTLS-TLS');
+  assert(anytls?.type === 'anytls', 'clash-meta missing AnyTLS proxy');
+  assert(anytls?.password === 'any-pass', 'clash-meta lost AnyTLS password');
+  assert(anytls?.sni === 'any.example.com', 'clash-meta lost AnyTLS SNI');
+  assert(anytls?.['client-fingerprint'] === 'chrome', 'clash-meta lost AnyTLS fingerprint');
+  assert(anytls?.['skip-cert-verify'] === true, 'clash-meta lost AnyTLS insecure flag');
+  assert(anytls?.alpn?.join(',') === 'h2,http/1.1', 'clash-meta lost AnyTLS ALPN');
+  assert(anytls?.['idle-session-check-interval'] === '30s', 'clash-meta lost AnyTLS idle check interval');
+  assert(anytls?.['idle-session-timeout'] === '30s', 'clash-meta lost AnyTLS idle timeout');
+  assert(anytls?.['min-idle-session'] === 2, 'clash-meta lost AnyTLS min idle session');
+
   const ssr = proxies.find((p) => p.name === 'SSR-Fix');
   assert(ssr?.protocol === 'auth_aes128_md5', 'clash-meta lost SSR protocol');
   assert(ssr?.obfs === 'tls1.2_ticket_auth', 'clash-meta lost SSR obfs');
@@ -597,7 +647,7 @@ add('golden fixture generates singbox expected support and warnings', async () =
   const { nodes } = await parseInput(goldenFixtureInput);
   const generator = mustGetGenerator('singbox');
   const analysis = analyzeConversion('singbox', nodes, generator.supportedProtocols);
-  assert(analysis.supported.length === 5, `expected 5 singbox supported fixture nodes, got ${analysis.supported.length}`);
+  assert(analysis.supported.length === 6, `expected 6 singbox supported fixture nodes, got ${analysis.supported.length}`);
   assert(analysis.skipped.some((item) => item.includes('SSR-Fix')), 'singbox should skip SSR fixture node');
   assert(analysis.warnings.some((w) => w.code === 'UNSUPPORTED_PROTOCOL' && w.protocol === 'ssr'), 'singbox missing SSR unsupported warning');
   assert(analysis.warnings.some((w) => w.code === 'TRANSPORT_DOWNGRADED' && w.nodes?.includes('VL-REALITY-XHTTP')), 'singbox missing xHTTP downgrade warning');
@@ -625,6 +675,17 @@ add('golden fixture generates singbox expected support and warnings', async () =
   assert(wg?.local_address?.[0] === '10.0.0.2/32', 'singbox WireGuard should use explicit default local_address');
   assert(wg?.peer_public_key === 'wg-public', 'singbox lost WireGuard peer public key');
   assert(wg?.pre_shared_key === 'wg-psk', 'singbox lost WireGuard pre-shared key');
+
+  const anytls = outbounds.find((o) => o.tag === 'ANYTLS-TLS');
+  assert(anytls?.type === 'anytls', 'singbox missing AnyTLS outbound');
+  assert(anytls?.password === 'any-pass', 'singbox lost AnyTLS password');
+  assert(anytls?.tls?.server_name === 'any.example.com', 'singbox lost AnyTLS SNI');
+  assert(anytls?.tls?.utls?.fingerprint === 'chrome', 'singbox lost AnyTLS fingerprint');
+  assert(anytls?.tls?.insecure === true, 'singbox lost AnyTLS insecure flag');
+  assert(anytls?.tls?.alpn?.join(',') === 'h2,http/1.1', 'singbox lost AnyTLS ALPN');
+  assert(anytls?.idle_session_check_interval === '30s', 'singbox lost AnyTLS idle check interval');
+  assert(anytls?.idle_session_timeout === '30s', 'singbox lost AnyTLS idle timeout');
+  assert(anytls?.min_idle_session === 2, 'singbox lost AnyTLS min idle session');
 });
 
 add('golden fixture keeps client text outputs useful', async () => {
@@ -642,6 +703,7 @@ add('golden fixture keeps client text outputs useful', async () => {
   assert(surgeText.includes('[WireGuard wg-WG-PEER]'), 'surge missing WireGuard section');
   assert(surgeText.includes('peer = (public-key = wg-public'), 'surge lost WireGuard peer');
   assert(surgeText.includes('SSR-Fix=ssr'), 'surge missing SSR fixture');
+  assert(!surgeText.includes('ANYTLS-TLS'), 'surge should skip unsupported AnyTLS fixture');
 
   const qxText = mustGetGenerator('quantumultx').generate(nodes);
   assert(qxText.includes('tag=VL-REALITY-XHTTP'), 'quantumultx missing VLESS fixture');
@@ -652,6 +714,7 @@ add('golden fixture keeps client text outputs useful', async () => {
   assert(qxText.includes('congestion-control=bbr'), 'quantumultx lost TUIC congestion control');
   assert(qxText.includes('tag=WG-PEER'), 'quantumultx missing WireGuard fixture');
   assert(qxText.includes('tag=SSR-Fix'), 'quantumultx missing SSR fixture');
+  assert(!qxText.includes('ANYTLS-TLS'), 'quantumultx should skip unsupported AnyTLS fixture');
 
   const loonText = mustGetGenerator('loon').generate(nodes);
   assert(loonText.includes('VL-REALITY-XHTTP = Vless'), 'loon missing VLESS fixture');
@@ -660,6 +723,7 @@ add('golden fixture keeps client text outputs useful', async () => {
   assert(loonText.includes('TUIC-BBR = TUIC'), 'loon missing TUIC fixture');
   assert(loonText.includes('WG-PEER = WireGuard'), 'loon missing WireGuard fixture');
   assert(loonText.includes('SSR-Fix = ShadowsocksR'), 'loon missing SSR fixture');
+  assert(!loonText.includes('ANYTLS-TLS'), 'loon should skip unsupported AnyTLS fixture');
 });
 
 add('golden fixture keeps URI-style outputs round-trippable', async () => {
@@ -681,14 +745,21 @@ add('golden fixture keeps URI-style outputs round-trippable', async () => {
     assert(text.includes('congestion_control=bbr'), `${fmt} lost TUIC congestion control`);
     assert(text.includes('wireguard://wg-private@wg.example.com:51820?'), `${fmt} missing WireGuard URI`);
     assert(text.includes('publickey=wg-public'), `${fmt} lost WireGuard public key`);
+    assert(text.includes('anytls://any-pass@any.example.com:443?'), `${fmt} missing AnyTLS URI`);
+    assert(text.includes('sni=any.example.com'), `${fmt} lost AnyTLS SNI`);
+    assert(text.includes('fp=chrome'), `${fmt} lost AnyTLS fingerprint`);
+    assert(text.includes('insecure=1'), `${fmt} lost AnyTLS insecure flag`);
+    assert(text.includes('idle_session_check_interval=30s'), `${fmt} lost AnyTLS idle check interval`);
     assert(text.includes('ssr://'), `${fmt} missing SSR URI`);
   }
 
   const plain = mustGetGenerator('v2ray-uri').generate(nodes);
   assert(plain.includes('VL-REALITY-XHTTP'), 'v2ray-uri missing VLESS fixture');
+  assert(plain.includes('ANYTLS-TLS'), 'v2ray-uri missing AnyTLS fixture');
   assert(plain.includes('ssr://'), 'v2ray-uri missing SSR fixture');
   const roundTrip = await parseInput(plain);
   assert(roundTrip.nodes.some((n) => n.name === 'SSR-Fix' && n.type === 'ssr'), 'v2ray-uri SSR fixture should round-trip');
+  assert(roundTrip.nodes.some((n) => n.name === 'ANYTLS-TLS' && n.type === 'anytls'), 'v2ray-uri AnyTLS fixture should round-trip');
 });
 
 add('messy realworld fixture handles duplicate, invalid, and localized nodes', async () => {

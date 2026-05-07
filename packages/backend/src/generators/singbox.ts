@@ -137,6 +137,17 @@ function buildOutbound(node: ProxyNode): Record<string, unknown> {
       if (node.mtu) o.mtu = node.mtu;
       return o;
     }
+    case 'anytls': {
+      const o: Record<string, unknown> = {
+        ...base, type: 'anytls', password: node.password,
+      };
+      const tls = buildTls(node);
+      if (tls) o.tls = tls;
+      if (node.idleSessionCheckInterval) o.idle_session_check_interval = node.idleSessionCheckInterval;
+      if (node.idleSessionTimeout) o.idle_session_timeout = node.idleSessionTimeout;
+      if (node.minIdleSession) o.min_idle_session = node.minIdleSession;
+      return o;
+    }
     case 'hysteria': {
       const o: Record<string, unknown> = {
         ...base, type: 'hysteria',
@@ -174,7 +185,7 @@ function buildOutbound(node: ProxyNode): Record<string, unknown> {
 
 export const singboxGenerator: Generator = {
   id: 'singbox' as TargetFormat,
-  supportedProtocols: ['ss', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'] as ProxyProtocol[],
+  supportedProtocols: ['ss', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'anytls', 'socks', 'http'] as ProxyProtocol[],
 
   generate(nodes: ProxyNode[], _ruleTemplate?: string, proxyGroups?: ProxyGroup[]): string {
     const filtered = nodes.filter(n => this.supportedProtocols.includes(n.type));

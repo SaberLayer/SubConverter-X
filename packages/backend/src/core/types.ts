@@ -1,4 +1,4 @@
-export type ProxyProtocol = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'hysteria' | 'hysteria2' | 'tuic' | 'wireguard' | 'socks' | 'http';
+export type ProxyProtocol = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'hysteria' | 'hysteria2' | 'tuic' | 'wireguard' | 'anytls' | 'socks' | 'http';
 export type TlsType = 'none' | 'tls' | 'reality';
 export type Transport = 'tcp' | 'ws' | 'grpc' | 'h2' | 'quic' | 'httpupgrade' | 'xhttp' | 'splithttp';
 export type TargetFormat =
@@ -94,6 +94,11 @@ export interface ProxyNode {
   mtu?: number;
   reservedBytes?: number[];
   peers?: { endpoint: string; publicKey: string; allowedIPs: string[] }[];
+
+  // AnyTLS
+  idleSessionCheckInterval?: string;
+  idleSessionTimeout?: string;
+  minIdleSession?: number;
 
   // General
   udp?: boolean;

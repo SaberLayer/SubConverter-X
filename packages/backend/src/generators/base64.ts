@@ -146,6 +146,17 @@ function buildUri(node: ProxyNode): string {
       if (node.reservedBytes) params.set('reserved', node.reservedBytes.join(','));
       return `wireguard://${node.privateKey}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
     }
+    case 'anytls': {
+      const params = new URLSearchParams();
+      if (node.sni) params.set('sni', node.sni);
+      if (node.fingerprint) params.set('fp', node.fingerprint);
+      if (node.skipCertVerify) params.set('insecure', '1');
+      if (node.alpn?.length) params.set('alpn', node.alpn.join(','));
+      if (node.idleSessionCheckInterval) params.set('idle_session_check_interval', node.idleSessionCheckInterval);
+      if (node.idleSessionTimeout) params.set('idle_session_timeout', node.idleSessionTimeout);
+      if (node.minIdleSession) params.set('min_idle_session', String(node.minIdleSession));
+      return `anytls://${encodeURIComponent(node.password || '')}@${node.server}:${node.port}?${params.toString()}#${encodeURIComponent(node.name)}`;
+    }
     case 'socks': {
       const auth = node.uuid && node.password ? `${node.uuid}:${node.password}@` : '';
       return `socks5://${auth}${node.server}:${node.port}#${encodeURIComponent(node.name)}`;
@@ -162,7 +173,7 @@ function buildUri(node: ProxyNode): string {
 
 export const base64Generator: Generator = {
   id: 'base64' as TargetFormat,
-  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'] as ProxyProtocol[],
+  supportedProtocols: ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'anytls', 'socks', 'http'] as ProxyProtocol[],
 
   generate(nodes: ProxyNode[], _ruleTemplate?: string): string {
     const filtered = nodes.filter(n => this.supportedProtocols.includes(n.type));

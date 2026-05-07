@@ -1,6 +1,6 @@
 import { Parser, ProxyNode, ProxyProtocol, TlsType, Transport } from '../core/types';
 
-const SUPPORTED_SCHEMES = ['ss://', 'ssr://', 'vmess://', 'vless://', 'trojan://', 'hysteria://', 'hysteria2://', 'hy2://', 'tuic://', 'wireguard://', 'socks://', 'socks5://', 'http://', 'https://'];
+const SUPPORTED_SCHEMES = ['ss://', 'ssr://', 'vmess://', 'vless://', 'trojan://', 'hysteria://', 'hysteria2://', 'hy2://', 'tuic://', 'wireguard://', 'anytls://', 'socks://', 'socks5://', 'http://', 'https://'];
 
 function safeB64Decode(str: string): string {
   const padded = str.replace(/-/g, '+').replace(/_/g, '/');
@@ -484,6 +484,45 @@ function parseWireGuard(line: string): ProxyNode | null {
   return node;
 }
 
+function parseAnyTLS(line: string): ProxyNode | null {
+  // anytls://password@host:port?params#name
+  const url = new URL(line);
+  const password = decodeURIComponent(url.username);
+  const server = url.hostname;
+  const port = parsePort(url.port || '443');
+  const name = url.hash ? decodeURIComponent(url.hash.slice(1)) : `${server}:${port}`;
+  const params = url.searchParams;
+
+  const node: ProxyNode = {
+    name,
+    type: 'anytls',
+    server,
+    port,
+    password,
+    transport: 'tcp',
+    tls: 'tls',
+    udp: true,
+  };
+
+  const sni = params.get('sni') ?? '';
+  const fp = params.get('fp') ?? params.get('fingerprint') ?? '';
+  const insecure = params.get('insecure') ?? params.get('allowInsecure') ?? '';
+  const alpnStr = params.get('alpn') ?? '';
+  const idleSessionCheckInterval = params.get('idle_session_check_interval') ?? params.get('idleSessionCheckInterval') ?? '';
+  const idleSessionTimeout = params.get('idle_session_timeout') ?? params.get('idleSessionTimeout') ?? '';
+  const minIdleSession = parseInt(params.get('min_idle_session') ?? params.get('minIdleSession') ?? '0', 10);
+
+  if (sni) node.sni = sni;
+  if (fp) node.fingerprint = fp;
+  if (insecure === '1' || insecure === 'true') node.skipCertVerify = true;
+  if (alpnStr) node.alpn = alpnStr.split(',').map((s) => s.trim()).filter(Boolean);
+  if (idleSessionCheckInterval) node.idleSessionCheckInterval = idleSessionCheckInterval;
+  if (idleSessionTimeout) node.idleSessionTimeout = idleSessionTimeout;
+  if (Number.isFinite(minIdleSession) && minIdleSession > 0) node.minIdleSession = minIdleSession;
+
+  return node;
+}
+
 function parseSOCKS(line: string): ProxyNode | null {
   // Format: socks://[user:pass@]host:port#name or socks5://[user:pass@]host:port#name
   const body = line.replace(/^socks5?:\/\//, '');
@@ -587,6 +626,7 @@ function parseLine(line: string): ProxyNode | null {
   if (trimmed.startsWith('hysteria://')) return parseHysteria(trimmed);
   if (trimmed.startsWith('tuic://')) return parseTUIC(trimmed);
   if (trimmed.startsWith('wireguard://')) return parseWireGuard(trimmed);
+  if (trimmed.startsWith('anytls://')) return parseAnyTLS(trimmed);
   if (trimmed.startsWith('socks://') || trimmed.startsWith('socks5://')) return parseSOCKS(trimmed);
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return parseHTTP(trimmed);
 

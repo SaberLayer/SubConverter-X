@@ -29,6 +29,7 @@ export const PROTOCOLS: ProxyProtocol[] = [
   'hysteria2',
   'tuic',
   'wireguard',
+  'anytls',
   'socks',
   'http',
 ];
@@ -83,17 +84,19 @@ const allProtocols = [...PROTOCOLS];
 const uriProtocols = [...PROTOCOLS];
 const clientTextProtocols: ProxyProtocol[] = ['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'];
 const v2rayProtocols: ProxyProtocol[] = ['ss', 'vmess', 'vless', 'trojan', 'socks', 'http'];
-const singboxProtocols: ProxyProtocol[] = ['ss', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http'];
+const singboxProtocols: ProxyProtocol[] = ['ss', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'anytls', 'socks', 'http'];
 
 const wireGuardManualAddress = 'WireGuard 需要本地地址/peer 等运行时参数，当前输出仅保留基础连接字段。';
 const wireGuardSingboxAddress = 'sing-box WireGuard 输出使用默认 local_address 10.0.0.2/32，请按实际隧道地址手动调整。';
 const wireGuardSurgeSection = 'WireGuard 输出使用默认 self-ip，peer/pre-shared-key 等高级字段可能无法完整保留。';
 const hysteriaUriCompat = 'Hysteria v1 URI 可表达基础认证和带宽字段，部分 obfs 细节可能需要手动确认。';
+const anyTlsUriCompat = 'AnyTLS URI 按 anytls:// 尽力输出，SNI、ALPN、fingerprint 和会话参数仍需目标客户端确认支持。';
 
 const clashMetaCapabilities = buildCapabilities(allProtocols);
 const uriCapabilities = buildCapabilities(uriProtocols, {
   hysteria: hysteriaUriCompat,
   wireguard: wireGuardManualAddress,
+  anytls: anyTlsUriCompat,
 });
 const clientTextCapabilities = buildCapabilities(clientTextProtocols, {
   wireguard: 'WireGuard 输出为客户端文本语法的尽力兼容，可能仍需补充本地地址和 peer 参数。',
@@ -216,4 +219,3 @@ export function getFeatureWarningsForNode(target: TargetFormat, node: ProxyNode)
 
   return warnings;
 }
-

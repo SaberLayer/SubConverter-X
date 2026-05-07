@@ -38,7 +38,7 @@ export interface DirectSubscriptionQuery extends Omit<ConversionRequest, 'input'
 const SORT_VALUES = new Set(['none', 'name', 'region']);
 const GROUP_TYPES = new Set(['select', 'url-test', 'fallback', 'load-balance']);
 const OPERATOR_TYPES = new Set(['filter', 'rename', 'set', 'sort', 'dedupe']);
-const PROTOCOL_VALUES = new Set<ProxyProtocol>(['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'socks', 'http']);
+const PROTOCOL_VALUES = new Set<ProxyProtocol>(['ss', 'ssr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'wireguard', 'anytls', 'socks', 'http']);
 const TRANSPORT_VALUES = new Set<Transport>(['tcp', 'ws', 'grpc', 'h2', 'quic', 'httpupgrade', 'xhttp', 'splithttp']);
 const TLS_VALUES = new Set<TlsType>(['none', 'tls', 'reality']);
 const SET_FIELDS = new Set<SettableNodeField>(['udp', 'skipCertVerify', 'sni', 'fingerprint', 'alpn', 'flow']);

@@ -61,6 +61,9 @@ export function nodeFingerprint(node: ProxyNode): string {
     mtu: node.mtu,
     reservedBytes: node.reservedBytes,
     peers: node.peers,
+    idleSessionCheckInterval: node.idleSessionCheckInterval,
+    idleSessionTimeout: node.idleSessionTimeout,
+    minIdleSession: node.minIdleSession,
     udp: node.udp,
   });
 }
