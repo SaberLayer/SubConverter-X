@@ -411,6 +411,15 @@ GET /readyz                # 就绪检查
 
 缓存目录为 `packages/backend/.rule-cache/`，已加入 `.gitignore`。远程请求超时默认 8 秒。
 
+## 测试矩阵
+
+回归测试使用 `packages/backend/src/tests/fixtures/input/` 中的真实输入样本，当前包含：
+
+- `modern-mixed.txt`：VLESS Reality xHTTP、Trojan HTTPUpgrade、Hysteria2 obfs、TUIC、WireGuard、SSR。
+- `messy-realworld.txt`：中文节点名、重复节点、坏行、Reality 缺省字段、gRPC 等混合场景。
+
+新增协议或生成器时，应同步补充 fixture，并在 `packages/backend/src/tests/regression.ts` 中验证解析字段、目标输出和 round-trip 行为。
+
 ## 目标格式
 
 | ID | 客户端 |

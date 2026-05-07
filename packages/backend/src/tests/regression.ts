@@ -16,6 +16,8 @@ import { getSubscriptionExpiresAt, SUBSCRIPTION_TTL_DAYS } from '../db';
 import { buildOpenApiDocument, renderApiDocsHtml } from '../openapi';
 import * as yaml from 'js-yaml';
 import net from 'node:net';
+import fs from 'node:fs';
+import path from 'node:path';
 
 type TestFn = () => Promise<void> | void;
 
@@ -35,14 +37,11 @@ function mustGetGenerator(format: Parameters<typeof getGenerator>[0]) {
   return generator;
 }
 
-const goldenFixtureInput = [
-  'vless://11111111-1111-1111-1111-111111111111@reality.example.com:443?security=reality&type=xhttp&path=%2Fedge&host=cdn.example.com&mode=auto&sni=www.cloudflare.com&fp=chrome&pbk=realityPub&sid=abcd&flow=xtls-rprx-vision#VL-REALITY-XHTTP',
-  'trojan://trojan-pass@trojan.example.com:443?type=httpupgrade&path=%2Fupgrade&host=up.example.com&sni=trojan.example.com#TR-HTTPUP',
-  'hysteria2://hy2-pass@hy2.example.com:443?sni=hy2.example.com&obfs=salamander&obfs-password=obfs-pass#HY2-OBFS',
-  'tuic://22222222-2222-2222-2222-222222222222:tuic-pass@tuic.example.com:443?congestion_control=bbr&udp_relay_mode=native&sni=tuic.example.com&alpn=h3#TUIC-BBR',
-  'wireguard://wg-private@wg.example.com:51820?publickey=wg-public&presharedkey=wg-psk&mtu=1420&reserved=1,2,3#WG-PEER',
-  'ssr://c3NyLmV4YW1wbGUuY29tOjgzODg6YXV0aF9hZXMxMjhfbWQ1OmFlcy0xMjgtZ2NtOnRsczEuMl90aWNrZXRfYXV0aDpjM055TFhCaGMzTS8/b2Jmc3BhcmFtPWMzTnlMVzlpWm5NdGNHRnlZVzAmcHJvdG9wYXJhbT1jSEp2ZEc4dGNHRnlZVzAmcmVtYXJrcz1VMU5TTFVacGVB',
-].join('\n');
+function fixtureInput(name: string): string {
+  return fs.readFileSync(path.join(__dirname, 'fixtures', 'input', name), 'utf-8');
+}
+
+const goldenFixtureInput = fixtureInput('modern-mixed.txt');
 
 add('parse mixed URI input', async () => {
   const input = [
@@ -675,6 +674,36 @@ add('golden fixture keeps URI-style outputs round-trippable', async () => {
   assert(plain.includes('ssr://'), 'v2ray-uri missing SSR fixture');
   const roundTrip = await parseInput(plain);
   assert(roundTrip.nodes.some((n) => n.name === 'SSR-Fix' && n.type === 'ssr'), 'v2ray-uri SSR fixture should round-trip');
+});
+
+add('messy realworld fixture handles duplicate, invalid, and localized nodes', async () => {
+  const { nodes } = await parseInput(fixtureInput('messy-realworld.txt'));
+  assert(nodes.length === 4, `expected 4 parsed nodes from messy fixture after parser dedupe, got ${nodes.length}`);
+  assert(nodes.some((n) => n.name === '香港 SS 01'), 'missing localized SS node');
+  assert(nodes.some((n) => n.name === '日本 VMEss'), 'missing localized VMess node');
+  assert(nodes.some((n) => n.name === '美国 Trojan gRPC'), 'missing localized Trojan node');
+  assert(!nodes.some((n) => n.name === 'not-a-valid-node'), 'invalid line should not parse as node');
+
+  const processed = processNodes(nodes, { deduplicate: true, addEmoji: true, sort: 'region' });
+  assert(processed.length === 4, `expected 4 nodes after processing, got ${processed.length}`);
+  assert(processed.some((n) => n.name.startsWith('🇭🇰')), 'expected HK emoji after processing');
+  assert(processed.some((n) => n.name.startsWith('🇯🇵')), 'expected JP emoji after processing');
+  assert(processed.some((n) => n.name.startsWith('🇺🇸')), 'expected US emoji after processing');
+
+  const clash = yaml.load(mustGetGenerator('clash-meta').generate(processed)) as any;
+  assert(Array.isArray(clash.proxies) && clash.proxies.length === 4, 'clash-meta messy fixture proxy count mismatch');
+  assert(clash.proxies.some((p: any) => p.name.includes('香港 SS 01')), 'clash-meta messy fixture missing HK SS');
+  assert(clash.proxies.some((p: any) => p.name.includes('美国 Trojan gRPC')), 'clash-meta messy fixture missing Trojan gRPC');
+
+  const singbox = mustGetGenerator('singbox');
+  const analysis = analyzeConversion('singbox', processed, singbox.supportedProtocols);
+  assert(analysis.supported.length === 4, `expected 4 singbox-supported messy nodes, got ${analysis.supported.length}`);
+  const singboxDoc = JSON.parse(singbox.generate(analysis.supported));
+  assert(singboxDoc.outbounds.some((o: any) => o.tag.includes('日本 VMEss')), 'singbox messy fixture missing VMess outbound');
+
+  const b64Text = Buffer.from(mustGetGenerator('base64').generate(processed), 'base64').toString('utf-8');
+  assert(b64Text.includes('ss://') && b64Text.includes('%E9%A6%99%E6%B8%AF%20SS%2001'), 'base64 messy fixture missing encoded HK SS');
+  assert(b64Text.includes('trojan://pass@trojan.example.com:443?'), 'base64 messy fixture missing Trojan URI');
 });
 
 add('resolve domain operator', async () => {
