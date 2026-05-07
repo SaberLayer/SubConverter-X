@@ -36,6 +36,8 @@ export default function App() {
   const [skipCertVerify, setSkipCertVerify] = useState<boolean | undefined>(undefined);
   const [autoRegionGroup, setAutoRegionGroup] = useState(false);
   const [proxyGroups, setProxyGroups] = useState<ProxyGroup[]>([]);
+  const [configTemplate, setConfigTemplate] = useState('');
+  const [configTemplateUrl, setConfigTemplateUrl] = useState('');
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [shortUrl, setShortUrl] = useState<ShortenResponse | null>(null);
   const [error, setError] = useState('');
@@ -44,7 +46,7 @@ export default function App() {
   const currentConfig = {
     target, ruleTemplate, include, exclude, regexDelete, regexSort, filterUseless, resolveDomain,
     includeTypes, excludeTypes, includeRegions, excludeRegions, rename,
-    addEmoji, deduplicate, sort, autoRegionGroup, proxyGroups,
+    addEmoji, deduplicate, sort, autoRegionGroup, proxyGroups, configTemplate, configTemplateUrl,
     ...(enableUdp !== undefined && { enableUdp }),
     ...(skipCertVerify !== undefined && { skipCertVerify }),
   };
@@ -70,6 +72,8 @@ export default function App() {
     setSkipCertVerify(config.skipCertVerify);
     setAutoRegionGroup(config.autoRegionGroup ?? false);
     setProxyGroups(Array.isArray(config.proxyGroups) ? config.proxyGroups : []);
+    setConfigTemplate(config.configTemplate || '');
+    setConfigTemplateUrl(config.configTemplateUrl || '');
   };
 
   const buildRequest = () => {
@@ -93,6 +97,8 @@ export default function App() {
     if (skipCertVerify !== undefined) req.skipCertVerify = skipCertVerify;
     req.autoRegionGroup = autoRegionGroup;
     if (proxyGroups.length > 0 && !autoRegionGroup) req.proxyGroups = proxyGroups;
+    if (configTemplate.trim()) req.configTemplate = configTemplate;
+    if (configTemplateUrl.trim()) req.configTemplateUrl = configTemplateUrl.trim();
     return req;
   };
 
@@ -156,6 +162,8 @@ export default function App() {
           addEmoji={addEmoji} deduplicate={deduplicate} sort={sort}
           enableUdp={enableUdp} skipCertVerify={skipCertVerify}
           autoRegionGroup={autoRegionGroup}
+          configTemplate={configTemplate}
+          configTemplateUrl={configTemplateUrl}
           onIncludeChange={setInclude} onExcludeChange={setExclude}
           onRegexDeleteChange={setRegexDelete} onRegexSortChange={setRegexSort}
           onFilterUselessChange={setFilterUseless} onResolveDomainChange={setResolveDomain}
@@ -166,6 +174,8 @@ export default function App() {
           onSortChange={setSort} onEnableUdpChange={setEnableUdp}
           onSkipCertVerifyChange={setSkipCertVerify}
           onAutoRegionGroupChange={setAutoRegionGroup}
+          onConfigTemplateChange={setConfigTemplate}
+          onConfigTemplateUrlChange={setConfigTemplateUrl}
         />
 
         <ProxyGroupEditor

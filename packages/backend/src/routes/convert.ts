@@ -9,6 +9,7 @@ import { resolveNodeDomains } from '../core/resolve-domain';
 import { ApiError, sendError } from '../core/api-error';
 import { parseConversionRequest } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
+import { renderOutputWithTemplate } from '../core/template-output';
 
 const router = Router();
 
@@ -19,7 +20,8 @@ router.post('/', async (req: Request, res: Response) => {
       input, target, ruleTemplate, include, exclude, rename,
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
-      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup
+      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup,
+      configTemplate, configTemplateUrl
     } = options;
 
     const finalTarget: TargetFormat = target === 'auto' ? 'clash-meta' : target;
@@ -71,7 +73,13 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    const output = generator.generate(supported, resolvedRules, finalProxyGroups);
+    const baseOutput = generator.generate(supported, resolvedRules, finalProxyGroups);
+    const output = await renderOutputWithTemplate(baseOutput, {
+      configTemplate,
+      configTemplateUrl,
+      target: finalTarget,
+      nodes: supported,
+    });
 
     res.json({
       output,

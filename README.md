@@ -225,7 +225,11 @@ Content-Type: application/json
 
   // 代理组
   "autoRegionGroup": true,            // 可选，自动按地区分组
-  "proxyGroups": [...]                // 可选，自定义代理组
+  "proxyGroups": [...],               // 可选，自定义代理组
+
+  // 外部配置模板
+  "configTemplateUrl": "https://example.com/template.yaml",
+  "configTemplate": "mixed-port: 7890\nproxies:\n{{proxies}}\nrules:\n{{rules}}"
 }
 ```
 
@@ -321,9 +325,44 @@ https://your-domain.com/api/sub?url=https://订阅链接&emoji=true&dedupe=true
 
 # 按地区排序 + 只保留香港节点
 https://your-domain.com/api/sub?url=https://订阅链接&sort=region&include=香港|HK
+
+# 使用远程配置模板
+https://your-domain.com/api/sub?url=https://订阅链接&target=clash-meta&template=https://example.com/template.yaml
 ```
 
 直接返回转换后的配置内容。支持 User-Agent 自动识别客户端类型（Clash、Surge、Shadowrocket 等），自动切换输出格式。
+
+### 外部配置模板
+
+`configTemplate` 和 `configTemplateUrl` 可把生成的节点片段嵌入到完整配置模板中，二者只能选择一个。远程模板 URL 会经过 SSRF 安全校验，并限制响应大小。
+
+支持的占位符：
+
+| 占位符 | 说明 |
+|--------|------|
+| `{{content}}` | 原始生成结果完整文本 |
+| `{{proxies}}` | 生成结果中的节点列表片段 |
+| `{{proxyGroups}}` | 生成结果中的策略组片段 |
+| `{{rules}}` | 生成结果中的规则片段 |
+| `{{dns}}` | 生成结果中的 DNS 片段 |
+| `{{nodeNames}}` | 节点名称列表，每行一个 |
+
+Clash Meta 模板示例：
+
+```yaml
+mixed-port: 7890
+allow-lan: true
+mode: rule
+
+proxies:
+{{proxies}}
+
+proxy-groups:
+{{proxyGroups}}
+
+rules:
+{{rules}}
+```
 
 ### 辅助接口
 

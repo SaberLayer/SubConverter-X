@@ -9,6 +9,7 @@ import { ApiError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
 import { CAPABILITY_MATRIX, getSupportedProtocolsForTarget } from '../core/capability-matrix';
+import { renderOutputWithTemplate } from '../core/template-output';
 import { saveSubscription, getSubscription } from '../db';
 import { getSubscriptionExpiresAt, SUBSCRIPTION_TTL_DAYS } from '../db';
 import { buildOpenApiDocument, renderApiDocsHtml } from '../openapi';
@@ -195,11 +196,13 @@ add('subscription storage preserves auto region group option', () => {
     target: 'clash-meta',
     autoRegionGroup: true,
     proxyGroups: [{ name: 'Manual', type: 'select' }],
+    configTemplate: 'proxies:\n{{proxies}}\n',
   });
 
   const stored = getSubscription(token);
   assert(stored, 'expected subscription to be stored');
   assert(stored.autoRegionGroup === true, 'expected autoRegionGroup to be preserved');
+  assert(stored.configTemplate?.includes('{{proxies}}'), 'expected configTemplate to be preserved');
 });
 
 add('subscription ttl metadata is generated', () => {
@@ -270,6 +273,7 @@ add('request schema validates conversion payload', () => {
     includeTypes: 'ss,vmess',
     filterUseless: true,
     sort: 'region',
+    configTemplate: 'proxies:\n{{proxies}}\n',
     proxyGroups: [
       { name: 'Manual', type: 'select', proxies: ['DIRECT'] },
     ],
@@ -278,9 +282,10 @@ add('request schema validates conversion payload', () => {
   assert(parsed.target === 'clash-meta', 'target parse mismatch');
   assert(parsed.includeTypes?.length === 2, 'includeTypes should parse CSV');
   assert(parsed.proxyGroups?.[0].name === 'Manual', 'proxy group parse mismatch');
+  assert(parsed.configTemplate?.includes('{{proxies}}'), 'configTemplate parse mismatch');
 });
 
-add('request schema rejects unsupported target and invalid group', () => {
+add('request schema rejects unsupported target, invalid group, and template conflict', () => {
   let unsupported = false;
   try {
     parseConversionRequest({ input: 'x', target: 'unknown' });
@@ -300,6 +305,19 @@ add('request schema rejects unsupported target and invalid group', () => {
     invalidGroup = err instanceof ApiError && err.code === 'VALIDATION_ERROR';
   }
   assert(invalidGroup, 'invalid proxy group should be rejected');
+
+  let templateConflict = false;
+  try {
+    parseConversionRequest({
+      input: 'x',
+      target: 'clash-meta',
+      configTemplate: '{{content}}',
+      configTemplateUrl: 'https://example.com/template.yaml',
+    });
+  } catch (err) {
+    templateConflict = err instanceof ApiError && err.code === 'VALIDATION_ERROR';
+  }
+  assert(templateConflict, 'config template conflict should be rejected');
 });
 
 add('request schema validates direct subscription query', () => {
@@ -315,6 +333,61 @@ add('request schema validates direct subscription query', () => {
   assert(parsed.target === 'auto', 'target parse mismatch');
   assert(parsed.addEmoji === true, 'emoji query flag should parse true');
   assert(parsed.deduplicate === true, 'dedupe query flag should parse true');
+});
+
+add('config template renders clash-meta fragments', async () => {
+  const input = [
+    'ss://YWVzLTEyOC1nY206cHdk@1.1.1.1:8388#SS1',
+    'trojan://pass@2.2.2.2:443?sni=tr.example.com#TR1',
+  ].join('\n');
+  const { nodes } = await parseInput(input);
+  const generator = mustGetGenerator('clash-meta');
+  const base = generator.generate(nodes, 'MATCH,Proxy', [{ name: 'Manual', type: 'select', proxies: ['DIRECT'] }]);
+  const rendered = await renderOutputWithTemplate(base, {
+    target: 'clash-meta',
+    nodes,
+    configTemplate: [
+      'mixed-port: 7890',
+      'proxies:',
+      '{{proxies}}',
+      'proxy-groups:',
+      '{{proxyGroups}}',
+      'rules:',
+      '{{rules}}',
+      '',
+    ].join('\n'),
+  });
+
+  const doc = yaml.load(rendered) as any;
+  assert(Array.isArray(doc.proxies), 'template should render proxies as YAML');
+  assert(doc.proxies.some((p: any) => p.name === 'SS1'), 'template output missing SS1 proxy');
+  assert(Array.isArray(doc['proxy-groups']), 'template should render proxy groups');
+  assert(doc.rules?.includes('MATCH,Proxy'), 'template output missing rules');
+});
+
+add('config template renders singbox full content and rejects empty templates', async () => {
+  const { nodes } = await parseInput('ss://YWVzLTEyOC1nY206cHdk@1.1.1.1:8388#SS1');
+  const base = mustGetGenerator('singbox').generate(nodes);
+  const rendered = await renderOutputWithTemplate(base, {
+    target: 'singbox',
+    nodes,
+    configTemplate: '{\n  "log": { "level": "debug" },\n  "source": {{content}}\n}',
+  });
+  const doc = JSON.parse(rendered);
+  assert(doc.log.level === 'debug', 'template should keep custom singbox log section');
+  assert(doc.source.outbounds.some((o: any) => o.tag === 'SS1'), 'template content should include generated singbox outbounds');
+
+  let rejected = false;
+  try {
+    await renderOutputWithTemplate(base, {
+      target: 'singbox',
+      nodes,
+      configTemplate: 'no placeholders here',
+    });
+  } catch (err) {
+    rejected = err instanceof ApiError && err.code === 'VALIDATION_ERROR';
+  }
+  assert(rejected, 'template without placeholders should be rejected');
 });
 
 add('conversion capabilities report unsupported and downgraded features', () => {

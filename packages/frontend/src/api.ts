@@ -52,6 +52,8 @@ export interface ConvertRequest {
   skipCertVerify?: boolean;
   proxyGroups?: ProxyGroup[];
   autoRegionGroup?: boolean;
+  configTemplate?: string;
+  configTemplateUrl?: string;
 }
 
 export interface ConvertResponse {

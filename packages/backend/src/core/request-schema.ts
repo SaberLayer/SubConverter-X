@@ -24,6 +24,8 @@ export interface ConversionRequest {
   skipCertVerify?: boolean;
   proxyGroups?: ProxyGroup[];
   autoRegionGroup?: boolean;
+  configTemplate?: string;
+  configTemplateUrl?: string;
 }
 
 export interface DirectSubscriptionQuery extends Omit<ConversionRequest, 'input' | 'target' | 'proxyGroups' | 'autoRegionGroup'> {
@@ -92,6 +94,15 @@ function asRegexString(value: unknown, field: string): string | undefined {
   return raw;
 }
 
+function asTemplateString(value: unknown, field: string): string | undefined {
+  const raw = asString(value, field);
+  if (!raw) return undefined;
+  if (raw.length > 1024 * 1024) {
+    throw new ApiError(413, 'PAYLOAD_TOO_LARGE', `${field} is too large`, { maxBytes: 1024 * 1024 });
+  }
+  return raw;
+}
+
 function asTarget(value: unknown, required = false): TargetFormat | undefined {
   const raw = asString(value, 'target', required);
   if (!raw) return undefined;
@@ -150,6 +161,12 @@ export function parseConversionRequest(body: unknown): ConversionRequest {
     throw new ApiError(413, 'PAYLOAD_TOO_LARGE', 'Input is too large', { maxBytes: 5 * 1024 * 1024 });
   }
 
+  const configTemplate = asTemplateString(body.configTemplate, 'configTemplate');
+  const configTemplateUrl = asString(body.configTemplateUrl, 'configTemplateUrl');
+  if (configTemplate && configTemplateUrl) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'Use either configTemplate or configTemplateUrl, not both');
+  }
+
   return {
     input,
     target: asTarget(body.target, true)!,
@@ -172,11 +189,19 @@ export function parseConversionRequest(body: unknown): ConversionRequest {
     skipCertVerify: asBoolean(body.skipCertVerify, 'skipCertVerify'),
     proxyGroups: asProxyGroups(body.proxyGroups),
     autoRegionGroup: asBoolean(body.autoRegionGroup, 'autoRegionGroup'),
+    configTemplate,
+    configTemplateUrl,
   };
 }
 
 export function parseDirectSubscriptionQuery(query: Record<string, unknown>): DirectSubscriptionQuery {
   const url = asString(query.url, 'url', true)!;
+  const configTemplate = asTemplateString(query.configTemplate, 'configTemplate');
+  const configTemplateUrl = asString(query.configTemplateUrl ?? query.template, 'configTemplateUrl');
+  if (configTemplate && configTemplateUrl) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'Use either configTemplate or configTemplateUrl, not both');
+  }
+
   return {
     url,
     target: asTarget(query.target),
@@ -197,5 +222,7 @@ export function parseDirectSubscriptionQuery(query: Record<string, unknown>): Di
     sort: asSort(query.sort) ?? 'none',
     enableUdp: asBoolean(query.udp, 'udp'),
     skipCertVerify: asBoolean(query.skipCert, 'skipCert'),
+    configTemplate,
+    configTemplateUrl,
   };
 }

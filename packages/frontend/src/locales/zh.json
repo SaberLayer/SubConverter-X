@@ -94,7 +94,13 @@
     "forceEnable": "强制启用",
     "forceDisable": "强制禁用",
     "autoRegionGroup": "自动按地区生成策略组",
-    "deduplicate": "节点去重"
+    "deduplicate": "节点去重",
+    "configTemplate": "配置模板",
+    "configTemplateUrl": "远程模板 URL",
+    "configTemplateUrlPlaceholder": "https://example.com/template.yaml",
+    "configTemplateInline": "内联模板",
+    "configTemplatePlaceholder": "mixed-port: 7890\nproxies:\n{{proxies}}\nproxy-groups:\n{{proxyGroups}}\nrules:\n{{rules}}",
+    "configTemplateHelp": "支持 {{content}}、{{proxies}}、{{proxyGroups}}、{{rules}}、{{dns}}、{{nodeNames}}。内联模板和远程模板二选一。"
   },
   "result": {
     "title": "转换结果",

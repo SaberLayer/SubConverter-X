@@ -19,6 +19,8 @@ interface Props {
   enableUdp?: boolean;
   skipCertVerify?: boolean;
   autoRegionGroup: boolean;
+  configTemplate: string;
+  configTemplateUrl: string;
   onIncludeChange: (v: string) => void;
   onExcludeChange: (v: string) => void;
   onRegexDeleteChange: (v: string) => void;
@@ -36,16 +38,19 @@ interface Props {
   onEnableUdpChange: (v: boolean | undefined) => void;
   onSkipCertVerifyChange: (v: boolean | undefined) => void;
   onAutoRegionGroupChange: (v: boolean) => void;
+  onConfigTemplateChange: (v: string) => void;
+  onConfigTemplateUrlChange: (v: string) => void;
 }
 
 export default function AdvancedOptions({
   include, exclude, regexDelete, regexSort, filterUseless, resolveDomain,
   includeTypes, excludeTypes, includeRegions, excludeRegions, rename, addEmoji, deduplicate, sort,
-  enableUdp, skipCertVerify, autoRegionGroup,
+  enableUdp, skipCertVerify, autoRegionGroup, configTemplate, configTemplateUrl,
   onIncludeChange, onExcludeChange, onRegexDeleteChange, onRegexSortChange, onFilterUselessChange, onResolveDomainChange,
   onIncludeTypesChange, onExcludeTypesChange, onIncludeRegionsChange, onExcludeRegionsChange, onRenameChange,
   onAddEmojiChange, onDeduplicateChange, onSortChange,
-  onEnableUdpChange, onSkipCertVerifyChange, onAutoRegionGroupChange
+  onEnableUdpChange, onSkipCertVerifyChange, onAutoRegionGroupChange,
+  onConfigTemplateChange, onConfigTemplateUrlChange
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -284,6 +289,40 @@ export default function AdvancedOptions({
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">{t('advanced.autoRegionGroup')}</span>
             </label>
+          </div>
+
+          {/* Config Template Section */}
+          <div className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">{t('advanced.configTemplate')}</h3>
+
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.configTemplateUrl')}
+              </label>
+              <input
+                type="url"
+                value={configTemplateUrl}
+                onChange={(e) => onConfigTemplateUrlChange(e.target.value)}
+                placeholder={t('advanced.configTemplateUrlPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                {t('advanced.configTemplateInline')}
+              </label>
+              <textarea
+                value={configTemplate}
+                onChange={(e) => onConfigTemplateChange(e.target.value)}
+                placeholder={t('advanced.configTemplatePlaceholder')}
+                rows={5}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('advanced.configTemplateHelp')}
+              </p>
+            </div>
           </div>
         </div>
       )}

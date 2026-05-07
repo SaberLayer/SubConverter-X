@@ -11,6 +11,7 @@ import { generateRegionGroups } from '../core/region-groups';
 import { ApiError, sendError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
+import { renderOutputWithTemplate } from '../core/template-output';
 
 const router = Router();
 
@@ -71,7 +72,7 @@ router.get('/sub', async (req: Request, res: Response) => {
       url, ruleTemplate, include, exclude, includeTypes, excludeTypes,
       includeRegions, excludeRegions, rename, regexDelete, regexSort,
       filterUseless, resolveDomain, addEmoji, deduplicate, sort,
-      enableUdp, skipCertVerify
+      enableUdp, skipCertVerify, configTemplate, configTemplateUrl
     } = options;
     let target = options.target;
 
@@ -124,7 +125,13 @@ router.get('/sub', async (req: Request, res: Response) => {
       }
     }
 
-    const output = generator.generate(supported, resolvedRules);
+    const baseOutput = generator.generate(supported, resolvedRules);
+    const output = await renderOutputWithTemplate(baseOutput, {
+      configTemplate,
+      configTemplateUrl,
+      target,
+      nodes: supported,
+    });
 
     if (subscriptionUserinfo) {
       res.set('subscription-userinfo', subscriptionUserinfo);
@@ -146,7 +153,8 @@ router.post('/shorten', (req: Request, res: Response) => {
       input, target, ruleTemplate, include, exclude, rename,
       includeTypes, excludeTypes, includeRegions, excludeRegions,
       regexDelete, regexSort, filterUseless, resolveDomain,
-      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup
+      addEmoji, deduplicate, sort, enableUdp, skipCertVerify, proxyGroups, autoRegionGroup,
+      configTemplate, configTemplateUrl
     } = options;
 
     const token = crypto.randomBytes(9).toString('base64url');
@@ -162,7 +170,9 @@ router.post('/shorten', (req: Request, res: Response) => {
       resolveDomain,
       addEmoji, deduplicate, sort, enableUdp, skipCertVerify,
       autoRegionGroup,
-      proxyGroups: autoRegionGroup ? undefined : proxyGroups
+      proxyGroups: autoRegionGroup ? undefined : proxyGroups,
+      configTemplate,
+      configTemplateUrl
     });
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -196,6 +206,7 @@ router.get('/sub/:token/info', (req: Request, res: Response) => {
       expiresAt: sub.expiresAt,
       ttlDays: SUBSCRIPTION_TTL_DAYS,
       autoRegionGroup: !!sub.autoRegionGroup,
+      hasConfigTemplate: !!(sub.configTemplate || sub.configTemplateUrl),
     });
   } catch (err) {
     sendError(res, err);
@@ -257,7 +268,13 @@ router.get('/sub/:token', async (req: Request, res: Response) => {
     }
 
     const finalProxyGroups = sub.autoRegionGroup ? generateRegionGroups(supported) : sub.proxyGroups;
-    const output = generator.generate(supported, resolvedRules, finalProxyGroups);
+    const baseOutput = generator.generate(supported, resolvedRules, finalProxyGroups);
+    const output = await renderOutputWithTemplate(baseOutput, {
+      configTemplate: sub.configTemplate,
+      configTemplateUrl: sub.configTemplateUrl,
+      target,
+      nodes: supported,
+    });
 
     // Pass through upstream subscription-userinfo header
     if (subscriptionUserinfo) {

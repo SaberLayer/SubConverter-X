@@ -25,6 +25,8 @@ export interface ConfigPreset {
     skipCertVerify?: boolean;
     autoRegionGroup: boolean;
     proxyGroups?: ProxyGroup[];
+    configTemplate?: string;
+    configTemplateUrl?: string;
   };
   createdAt: number;
 }

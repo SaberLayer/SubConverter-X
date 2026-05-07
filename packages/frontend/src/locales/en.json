@@ -94,7 +94,13 @@
     "forceEnable": "Force enable",
     "forceDisable": "Force disable",
     "autoRegionGroup": "Generate region proxy groups",
-    "deduplicate": "Deduplicate Nodes"
+    "deduplicate": "Deduplicate Nodes",
+    "configTemplate": "Config Template",
+    "configTemplateUrl": "Remote Template URL",
+    "configTemplateUrlPlaceholder": "https://example.com/template.yaml",
+    "configTemplateInline": "Inline Template",
+    "configTemplatePlaceholder": "mixed-port: 7890\nproxies:\n{{proxies}}\nproxy-groups:\n{{proxyGroups}}\nrules:\n{{rules}}",
+    "configTemplateHelp": "Supports {{content}}, {{proxies}}, {{proxyGroups}}, {{rules}}, {{dns}}, and {{nodeNames}}. Use either inline or remote template."
   },
   "result": {
     "title": "Conversion Result",

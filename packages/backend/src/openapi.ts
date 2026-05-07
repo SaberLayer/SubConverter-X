@@ -37,6 +37,14 @@ const conversionRequestSchema = {
     enableUdp: { type: 'boolean' },
     skipCertVerify: { type: 'boolean' },
     autoRegionGroup: { type: 'boolean' },
+    configTemplate: {
+      type: 'string',
+      description: 'Optional inline full-config template. Supported placeholders: {{content}}, {{proxies}}, {{proxyGroups}}, {{rules}}, {{dns}}, {{nodeNames}}.',
+    },
+    configTemplateUrl: {
+      type: 'string',
+      description: 'Optional remote full-config template URL. SSRF checks apply before fetching.',
+    },
     proxyGroups: {
       type: 'array',
       items: {
@@ -135,6 +143,7 @@ export function buildOpenApiDocument() {
                       url: { type: 'string' },
                       expiresAt: { type: 'number' },
                       ttlDays: { type: 'number' },
+                      hasConfigTemplate: { type: 'boolean' },
                     },
                   },
                 },
@@ -154,6 +163,8 @@ export function buildOpenApiDocument() {
             { name: 'emoji', in: 'query', schema: { type: 'boolean' } },
             { name: 'dedupe', in: 'query', schema: { type: 'boolean' } },
             { name: 'sort', in: 'query', schema: { type: 'string', enum: ['none', 'name', 'region'] } },
+            { name: 'template', in: 'query', schema: { type: 'string' }, description: 'Remote config template URL alias for configTemplateUrl.' },
+            { name: 'configTemplateUrl', in: 'query', schema: { type: 'string' } },
           ],
           responses: {
             '200': { description: 'Converted subscription config' },
