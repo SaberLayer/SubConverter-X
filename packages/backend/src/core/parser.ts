@@ -6,12 +6,14 @@ import { base64Parser } from '../parsers/base64';
 import { clientConfigParser } from '../parsers/client-config';
 import { fetchSubscription, isSubscriptionUrl } from './fetcher';
 import { nodeFingerprint } from './node-fingerprint';
+import { formatSubscriptionUserinfo, mergeSubscriptionUserinfo, parseSubscriptionUserinfo, type SubscriptionUserinfo } from './subscription-userinfo';
 
 const parsers: Parser[] = [uriParser, clashParser, singboxParser, clientConfigParser, base64Parser];
 
 export interface ParseResult {
   nodes: ProxyNode[];
   subscriptionUserinfo?: string;  // upstream subscription-userinfo header
+  subscriptionUserinfoData?: SubscriptionUserinfo;
 }
 
 function parseContent(content: string): ProxyNode[] {
@@ -43,14 +45,14 @@ export async function parseInput(raw: string): Promise<ParseResult> {
   if (hasUrls) {
     // Mixed mode: lines can be URLs or node URIs
     const allNodes: ProxyNode[] = [];
-    let userinfo: string | undefined;
+    const userinfoItems: SubscriptionUserinfo[] = [];
 
     for (const line of lines) {
       if (isSubscriptionUrl(line)) {
         try {
           const result = await fetchSubscription(line);
-          // Keep the first subscription-userinfo we find
-          if (!userinfo && result.userinfo) userinfo = result.userinfo;
+          const userinfo = parseSubscriptionUserinfo(result.userinfo);
+          if (userinfo) userinfoItems.push(userinfo);
           const nodes = parseContent(result.content);
           allNodes.push(...nodes);
         } catch {
@@ -63,7 +65,12 @@ export async function parseInput(raw: string): Promise<ParseResult> {
       }
     }
 
-    return { nodes: dedup(allNodes), subscriptionUserinfo: userinfo };
+    const mergedUserinfo = mergeSubscriptionUserinfo(userinfoItems);
+    return {
+      nodes: dedup(allNodes),
+      subscriptionUserinfo: formatSubscriptionUserinfo(mergedUserinfo),
+      subscriptionUserinfoData: mergedUserinfo,
+    };
   }
 
   // No URLs — parse entire input as a single block (could be YAML/JSON/base64)

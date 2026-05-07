@@ -246,6 +246,13 @@ Content-Type: application/json
 {
   "output": "port: 7890\n...",
   "nodeCount": 3,
+  "subscriptionUserinfo": "upload=125; download=250; total=1500; expire=1990000000",
+  "subscriptionUserinfoData": {
+    "upload": 125,
+    "download": 250,
+    "total": 1500,
+    "expire": 1990000000
+  },
   "skipped": ["SSR-Old (ssr)"],
   "warnings": [
     {
@@ -338,6 +345,8 @@ https://your-domain.com/api/sub?url=https://订阅链接&target=clash-meta&templ
 ```
 
 直接返回转换后的配置内容。支持 User-Agent 自动识别客户端类型（Clash、Surge、Shadowrocket 等），自动切换输出格式。
+
+多个远程订阅合并时，`subscription-userinfo` 会同步合并：`upload`、`download`、`total` 求和，`expire` 取最早过期时间。直链和短链订阅响应会继续输出合并后的 `subscription-userinfo` header，`/api/convert` 额外返回结构化的 `subscriptionUserinfoData`。
 
 ### 外部配置模板
 

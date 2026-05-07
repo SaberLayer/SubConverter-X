@@ -31,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
       throw new ApiError(400, 'UNSUPPORTED_TARGET', `Unsupported target format: ${finalTarget}`, { supported: getAllFormats() });
     }
 
-    const { nodes, subscriptionUserinfo } = await parseInput(input);
+    const { nodes, subscriptionUserinfo, subscriptionUserinfoData } = await parseInput(input);
     if (nodes.length === 0) {
       throw new ApiError(400, 'NO_VALID_NODES', 'No valid proxy nodes found in input');
     }
@@ -88,6 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
       skipped,
       warnings,
       subscriptionUserinfo,
+      subscriptionUserinfoData,
       filteredOut: nodes.length - processed.length,
     });
   } catch (err) {

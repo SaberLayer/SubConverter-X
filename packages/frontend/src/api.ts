@@ -63,6 +63,12 @@ export interface ConvertResponse {
   skipped: string[];
   warnings?: ConversionWarning[];
   subscriptionUserinfo?: string;
+  subscriptionUserinfoData?: {
+    upload?: number;
+    download?: number;
+    total?: number;
+    expire?: number;
+  };
   filteredOut?: number;
 }
 

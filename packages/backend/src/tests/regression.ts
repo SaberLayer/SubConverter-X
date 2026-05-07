@@ -11,6 +11,7 @@ import { analyzeConversion } from '../core/capabilities';
 import { CAPABILITY_MATRIX, getSupportedProtocolsForTarget } from '../core/capability-matrix';
 import { renderOutputWithTemplate } from '../core/template-output';
 import { applyNodeOperators } from '../core/node-operators';
+import { formatSubscriptionUserinfo, mergeSubscriptionUserinfo, parseSubscriptionUserinfo } from '../core/subscription-userinfo';
 import { saveSubscription, getSubscription } from '../db';
 import { getSubscriptionExpiresAt, SUBSCRIPTION_TTL_DAYS } from '../db';
 import { buildOpenApiDocument, renderApiDocsHtml } from '../openapi';
@@ -233,6 +234,20 @@ add('subscription ttl metadata is generated', () => {
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = getSubscriptionExpiresAt(now);
   assert(expiresAt === now + SUBSCRIPTION_TTL_DAYS * 86400, 'subscription expiresAt should respect configured TTL');
+});
+
+add('subscription-userinfo parses, merges, and formats traffic metadata', () => {
+  const first = parseSubscriptionUserinfo('upload=100; download=200; total=1000; expire=2000000000');
+  const second = parseSubscriptionUserinfo('download=50; upload=25; total=500; expire=1990000000');
+  assert(first?.upload === 100 && first.download === 200, 'first userinfo parse mismatch');
+  assert(second?.upload === 25 && second.download === 50, 'second userinfo parse mismatch');
+
+  const merged = mergeSubscriptionUserinfo([first, second]);
+  assert(merged?.upload === 125, `expected merged upload=125, got ${merged?.upload}`);
+  assert(merged?.download === 250, `expected merged download=250, got ${merged?.download}`);
+  assert(merged?.total === 1500, `expected merged total=1500, got ${merged?.total}`);
+  assert(merged?.expire === 1990000000, `expected earliest expire, got ${merged?.expire}`);
+  assert(formatSubscriptionUserinfo(merged) === 'upload=125; download=250; total=1500; expire=1990000000', 'userinfo format mismatch');
 });
 
 add('openapi document exposes core endpoints', () => {
