@@ -86,21 +86,30 @@ npm run dev:frontend
 
 ## 支持的协议
 
-说明：表格中的 `✓` 表示该目标格式具备基础解析/生成能力，不代表所有客户端私有字段都能 100% 保真。转换接口会在响应中返回 `warnings`，用于提示协议降级、字段无法完整表达、节点被跳过等情况。
+说明：`完整` 表示当前生成器可以表达主要协议字段；`部分` 表示会输出可用的兼容配置，但存在安全降级、字段丢失或需要手动补充；`不支持` 表示该目标没有对应协议语法，节点会被跳过。后端能力定义见 `packages/backend/src/core/capability-matrix.ts`，转换接口会在响应中返回 `warnings`。
 
-| 协议 | 解析 | Clash Meta | sing-box | Surge | QX | Shadowrocket | Loon | V2Ray | Base64 |
-|------|------|-----------|---------|-------|-----|-------------|------|-------|--------|
-| Shadowsocks | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| ShadowsocksR | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
-| VMess | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| VLESS | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Trojan | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Hysteria | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Hysteria2 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
-| TUIC | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
-| WireGuard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
-| SOCKS5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| HTTP/HTTPS | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 协议 | 解析 | Clash Meta / Stash / Egern | sing-box | Surge / Surfboard | Quantumult X | Shadowrocket / Base64 URI | Loon | V2Ray JSON |
+|------|------|----------------------------|----------|-------------------|--------------|---------------------------|------|------------|
+| Shadowsocks | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
+| ShadowsocksR | 完整 | 完整 | 不支持 | 完整 | 完整 | 完整 | 完整 | 不支持 |
+| VMess | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
+| VLESS | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
+| Trojan | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
+| Hysteria | 完整 | 完整 | 完整 | 不支持 | 不支持 | 部分 | 不支持 | 不支持 |
+| Hysteria2 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 不支持 |
+| TUIC | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 不支持 |
+| WireGuard | 完整 | 完整 | 部分 | 部分 | 部分 | 部分 | 部分 | 不支持 |
+| SOCKS5 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
+| HTTP/HTTPS | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 | 完整 |
+
+### 重点兼容边界
+
+- VLESS Reality + xHTTP：Clash Meta/mihomo 可保留 `reality-opts` 与 `xhttp-opts`；sing-box 当前将 xHTTP/SplitHTTP 降级为 HTTPUpgrade；Surge/QX/Loon 会按 WebSocket 类字段兼容输出。
+- Trojan HTTPUpgrade：Clash Meta 输出 `ws-opts.v2ray-http-upgrade=true`，URI 类目标保留 `type=httpupgrade`。
+- Hysteria2 obfs：Clash Meta、sing-box、Surge、QX、Shadowrocket/Base64、Loon 会保留 salamander obfs password。
+- TUIC：会保留 UUID、password、SNI、ALPN、congestion control 与 UDP relay mode；具体客户端字段名按目标格式映射。
+- WireGuard：多数客户端需要本地地址、peer、allowed IP 等上下文。当前输出会保留 private/public/pre-shared key、MTU、reserved bytes 等基础字段，但部分目标会附带 `FEATURE_PARTIAL`。
+- Hysteria v1：Clash Meta 与 sing-box 可表达基础字段；URI 类输出为兼容格式，obfs 等细节需要在目标客户端确认。
 
 ### 兼容性提示
 

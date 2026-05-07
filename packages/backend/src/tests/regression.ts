@@ -8,9 +8,11 @@ import { createRateLimiter } from '../core/rate-limit';
 import { ApiError } from '../core/api-error';
 import { parseConversionRequest, parseDirectSubscriptionQuery } from '../core/request-schema';
 import { analyzeConversion } from '../core/capabilities';
+import { CAPABILITY_MATRIX, getSupportedProtocolsForTarget } from '../core/capability-matrix';
 import { saveSubscription, getSubscription } from '../db';
 import { getSubscriptionExpiresAt, SUBSCRIPTION_TTL_DAYS } from '../db';
 import { buildOpenApiDocument, renderApiDocsHtml } from '../openapi';
+import * as yaml from 'js-yaml';
 import net from 'node:net';
 
 type TestFn = () => Promise<void> | void;
@@ -24,6 +26,21 @@ function add(name: string, run: TestFn) {
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+function mustGetGenerator(format: Parameters<typeof getGenerator>[0]) {
+  const generator = getGenerator(format);
+  assert(generator, `missing generator ${format}`);
+  return generator;
+}
+
+const goldenFixtureInput = [
+  'vless://11111111-1111-1111-1111-111111111111@reality.example.com:443?security=reality&type=xhttp&path=%2Fedge&host=cdn.example.com&mode=auto&sni=www.cloudflare.com&fp=chrome&pbk=realityPub&sid=abcd&flow=xtls-rprx-vision#VL-REALITY-XHTTP',
+  'trojan://trojan-pass@trojan.example.com:443?type=httpupgrade&path=%2Fupgrade&host=up.example.com&sni=trojan.example.com#TR-HTTPUP',
+  'hysteria2://hy2-pass@hy2.example.com:443?sni=hy2.example.com&obfs=salamander&obfs-password=obfs-pass#HY2-OBFS',
+  'tuic://22222222-2222-2222-2222-222222222222:tuic-pass@tuic.example.com:443?congestion_control=bbr&udp_relay_mode=native&sni=tuic.example.com&alpn=h3#TUIC-BBR',
+  'wireguard://wg-private@wg.example.com:51820?publickey=wg-public&presharedkey=wg-psk&mtu=1420&reserved=1,2,3#WG-PEER',
+  'ssr://c3NyLmV4YW1wbGUuY29tOjgzODg6YXV0aF9hZXMxMjhfbWQ1OmFlcy0xMjgtZ2NtOnRsczEuMl90aWNrZXRfYXV0aDpjM055TFhCaGMzTS8/b2Jmc3BhcmFtPWMzTnlMVzlpWm5NdGNHRnlZVzAmcHJvdG9wYXJhbT1jSEp2ZEc4dGNHRnlZVzAmcmVtYXJrcz1VMU5TTFVacGVB',
+].join('\n');
 
 add('parse mixed URI input', async () => {
   const input = [
@@ -346,6 +363,203 @@ add('conversion capabilities report unsupported and downgraded features', () => 
   assert(singboxAnalysis.warnings.some((w) => w.code === 'UNSUPPORTED_PROTOCOL' && w.protocol === 'ssr'), 'missing unsupported SSR warning');
   assert(singboxAnalysis.warnings.some((w) => w.code === 'TRANSPORT_DOWNGRADED' && w.nodes?.includes('VL-XHTTP')), 'missing xhttp downgrade warning');
   assert(singboxAnalysis.warnings.some((w) => w.code === 'FEATURE_PARTIAL' && w.nodes?.includes('WG-SB')), 'missing wireguard partial warning');
+});
+
+add('capability matrix matches generator protocol filters', () => {
+  for (const fmt of getAllFormats()) {
+    const generator = mustGetGenerator(fmt);
+    const matrixProtocols = getSupportedProtocolsForTarget(fmt);
+    assert(matrixProtocols.join(',') === generator.supportedProtocols.join(','), `${fmt} capability matrix drifted from generator supportedProtocols`);
+    for (const protocol of generator.supportedProtocols) {
+      assert(CAPABILITY_MATRIX[fmt][protocol].status !== 'unsupported', `${fmt}/${protocol} should not be unsupported in matrix`);
+    }
+  }
+});
+
+add('golden fixture parses modern protocol details', async () => {
+  const { nodes } = await parseInput(goldenFixtureInput);
+  assert(nodes.length === 6, `expected 6 golden fixture nodes, got ${nodes.length}`);
+
+  const vless = nodes.find((n) => n.name === 'VL-REALITY-XHTTP');
+  assert(vless, 'missing VLESS Reality xHTTP node');
+  assert(vless.type === 'vless', `expected vless, got ${vless.type}`);
+  assert(vless.tls === 'reality', `expected reality tls, got ${vless.tls}`);
+  assert(vless.transport === 'xhttp', `expected xhttp transport, got ${vless.transport}`);
+  assert(vless.xhttpPath === '/edge', `expected xhttp path /edge, got ${vless.xhttpPath}`);
+  assert(vless.xhttpHost === 'cdn.example.com', `expected xhttp host cdn.example.com, got ${vless.xhttpHost}`);
+  assert(vless.xhttpMode === 'auto', `expected xhttp mode auto, got ${vless.xhttpMode}`);
+  assert(vless.realityPublicKey === 'realityPub', `expected reality public key, got ${vless.realityPublicKey}`);
+  assert(vless.realityShortId === 'abcd', `expected reality short id, got ${vless.realityShortId}`);
+  assert(vless.flow === 'xtls-rprx-vision', `expected VLESS flow, got ${vless.flow}`);
+
+  const trojan = nodes.find((n) => n.name === 'TR-HTTPUP');
+  assert(trojan?.type === 'trojan', 'missing Trojan HTTPUpgrade node');
+  assert(trojan.transport === 'httpupgrade', `expected trojan httpupgrade, got ${trojan.transport}`);
+  assert(trojan.wsPath === '/upgrade', `expected trojan upgrade path, got ${trojan.wsPath}`);
+  assert(trojan.wsHeaders?.Host === 'up.example.com', `expected trojan upgrade host, got ${trojan.wsHeaders?.Host}`);
+
+  const hysteria2 = nodes.find((n) => n.name === 'HY2-OBFS');
+  assert(hysteria2?.type === 'hysteria2', 'missing Hysteria2 obfs node');
+  assert(hysteria2.obfs === 'salamander', `expected hy2 obfs salamander, got ${hysteria2.obfs}`);
+  assert(hysteria2.obfsPassword === 'obfs-pass', `expected hy2 obfs password, got ${hysteria2.obfsPassword}`);
+
+  const tuic = nodes.find((n) => n.name === 'TUIC-BBR');
+  assert(tuic?.type === 'tuic', 'missing TUIC node');
+  assert(tuic.congestionControl === 'bbr', `expected tuic bbr, got ${tuic.congestionControl}`);
+  assert(tuic.udpRelayMode === 'native', `expected tuic native relay, got ${tuic.udpRelayMode}`);
+
+  const wireguard = nodes.find((n) => n.name === 'WG-PEER');
+  assert(wireguard?.type === 'wireguard', 'missing WireGuard node');
+  assert(wireguard.publicKey === 'wg-public', `expected WireGuard public key, got ${wireguard.publicKey}`);
+  assert(wireguard.preSharedKey === 'wg-psk', `expected WireGuard pre-shared key, got ${wireguard.preSharedKey}`);
+  assert(wireguard.mtu === 1420, `expected WireGuard MTU 1420, got ${wireguard.mtu}`);
+  assert(wireguard.reservedBytes?.join(',') === '1,2,3', `expected WireGuard reserved bytes, got ${wireguard.reservedBytes}`);
+
+  const ssr = nodes.find((n) => n.name === 'SSR-Fix');
+  assert(ssr?.type === 'ssr', 'missing SSR node');
+  assert(ssr.ssrProtocol === 'auth_aes128_md5', `expected SSR protocol, got ${ssr.ssrProtocol}`);
+  assert(ssr.ssrObfs === 'tls1.2_ticket_auth', `expected SSR obfs, got ${ssr.ssrObfs}`);
+});
+
+add('golden fixture generates clash-meta advanced fields', async () => {
+  const { nodes } = await parseInput(goldenFixtureInput);
+  const output = mustGetGenerator('clash-meta').generate(nodes);
+  const doc = yaml.load(output) as any;
+  const proxies = doc.proxies as any[];
+  assert(Array.isArray(proxies), 'clash-meta proxies should be an array');
+
+  const vless = proxies.find((p) => p.name === 'VL-REALITY-XHTTP');
+  assert(vless, 'clash-meta missing VLESS Reality xHTTP proxy');
+  assert(vless.type === 'vless', `expected vless proxy, got ${vless.type}`);
+  assert(vless.network === 'xhttp', `expected xhttp network, got ${vless.network}`);
+  assert(vless['reality-opts']?.['public-key'] === 'realityPub', 'clash-meta lost Reality public-key');
+  assert(vless['reality-opts']?.['short-id'] === 'abcd', 'clash-meta lost Reality short-id');
+  assert(vless['xhttp-opts']?.path === '/edge', 'clash-meta lost xHTTP path');
+  assert(vless['xhttp-opts']?.host === 'cdn.example.com', 'clash-meta lost xHTTP host');
+  assert(vless['xhttp-opts']?.mode === 'auto', 'clash-meta lost xHTTP mode');
+
+  const trojan = proxies.find((p) => p.name === 'TR-HTTPUP');
+  assert(trojan, 'clash-meta missing Trojan HTTPUpgrade proxy');
+  assert(trojan.network === 'ws', `expected HTTPUpgrade to use ws network, got ${trojan.network}`);
+  assert(trojan['ws-opts']?.['v2ray-http-upgrade'] === true, 'clash-meta lost HTTPUpgrade flag');
+  assert(trojan['ws-opts']?.path === '/upgrade', 'clash-meta lost HTTPUpgrade path');
+  assert(trojan['ws-opts']?.headers?.Host === 'up.example.com', 'clash-meta lost HTTPUpgrade host');
+
+  const hy2 = proxies.find((p) => p.name === 'HY2-OBFS');
+  assert(hy2?.obfs === 'salamander', 'clash-meta lost Hysteria2 salamander obfs');
+  assert(hy2?.['obfs-password'] === 'obfs-pass', 'clash-meta lost Hysteria2 obfs password');
+
+  const tuic = proxies.find((p) => p.name === 'TUIC-BBR');
+  assert(tuic?.['congestion-controller'] === 'bbr', 'clash-meta lost TUIC congestion controller');
+  assert(tuic?.['udp-relay-mode'] === 'native', 'clash-meta lost TUIC UDP relay mode');
+
+  const wg = proxies.find((p) => p.name === 'WG-PEER');
+  assert(wg?.['private-key'] === 'wg-private', 'clash-meta lost WireGuard private key');
+  assert(wg?.['public-key'] === 'wg-public', 'clash-meta lost WireGuard public key');
+  assert(wg?.['pre-shared-key'] === 'wg-psk', 'clash-meta lost WireGuard pre-shared key');
+  assert(wg?.reserved?.join(',') === '1,2,3', 'clash-meta lost WireGuard reserved bytes');
+
+  const ssr = proxies.find((p) => p.name === 'SSR-Fix');
+  assert(ssr?.protocol === 'auth_aes128_md5', 'clash-meta lost SSR protocol');
+  assert(ssr?.obfs === 'tls1.2_ticket_auth', 'clash-meta lost SSR obfs');
+});
+
+add('golden fixture generates singbox expected support and warnings', async () => {
+  const { nodes } = await parseInput(goldenFixtureInput);
+  const generator = mustGetGenerator('singbox');
+  const analysis = analyzeConversion('singbox', nodes, generator.supportedProtocols);
+  assert(analysis.supported.length === 5, `expected 5 singbox supported fixture nodes, got ${analysis.supported.length}`);
+  assert(analysis.skipped.some((item) => item.includes('SSR-Fix')), 'singbox should skip SSR fixture node');
+  assert(analysis.warnings.some((w) => w.code === 'UNSUPPORTED_PROTOCOL' && w.protocol === 'ssr'), 'singbox missing SSR unsupported warning');
+  assert(analysis.warnings.some((w) => w.code === 'TRANSPORT_DOWNGRADED' && w.nodes?.includes('VL-REALITY-XHTTP')), 'singbox missing xHTTP downgrade warning');
+  assert(analysis.warnings.some((w) => w.code === 'FEATURE_PARTIAL' && w.nodes?.includes('WG-PEER')), 'singbox missing WireGuard partial warning');
+
+  const doc = JSON.parse(generator.generate(analysis.supported));
+  const outbounds = doc.outbounds as any[];
+  const vless = outbounds.find((o) => o.tag === 'VL-REALITY-XHTTP');
+  assert(vless?.type === 'vless', 'singbox missing VLESS outbound');
+  assert(vless.transport?.type === 'httpupgrade', `expected singbox xHTTP downgrade to httpupgrade, got ${vless.transport?.type}`);
+  assert(vless.transport?.path === '/edge', 'singbox lost downgraded xHTTP path');
+  assert(vless.transport?.headers?.Host === 'cdn.example.com', 'singbox lost downgraded xHTTP host');
+  assert(vless.tls?.reality?.public_key === 'realityPub', 'singbox lost Reality public key');
+  assert(vless.tls?.reality?.short_id === 'abcd', 'singbox lost Reality short id');
+
+  const hy2 = outbounds.find((o) => o.tag === 'HY2-OBFS');
+  assert(hy2?.obfs?.type === 'salamander', 'singbox lost Hysteria2 obfs type');
+  assert(hy2?.obfs?.password === 'obfs-pass', 'singbox lost Hysteria2 obfs password');
+
+  const tuic = outbounds.find((o) => o.tag === 'TUIC-BBR');
+  assert(tuic?.congestion_control === 'bbr', 'singbox lost TUIC congestion control');
+  assert(tuic?.udp_relay_mode === 'native', 'singbox lost TUIC UDP relay mode');
+
+  const wg = outbounds.find((o) => o.tag === 'WG-PEER');
+  assert(wg?.local_address?.[0] === '10.0.0.2/32', 'singbox WireGuard should use explicit default local_address');
+  assert(wg?.peer_public_key === 'wg-public', 'singbox lost WireGuard peer public key');
+  assert(wg?.pre_shared_key === 'wg-psk', 'singbox lost WireGuard pre-shared key');
+});
+
+add('golden fixture keeps client text outputs useful', async () => {
+  const { nodes } = await parseInput(goldenFixtureInput);
+
+  const surgeText = mustGetGenerator('surge').generate(nodes);
+  assert(surgeText.includes('VL-REALITY-XHTTP=vless'), 'surge missing VLESS fixture');
+  assert(surgeText.includes('ws-path=/edge'), 'surge should map xHTTP path to WS-compatible field');
+  assert(surgeText.includes('TR-HTTPUP=trojan'), 'surge missing Trojan HTTPUpgrade fixture');
+  assert(surgeText.includes('ws-path=/upgrade'), 'surge lost Trojan HTTPUpgrade path');
+  assert(surgeText.includes('HY2-OBFS=hysteria2'), 'surge missing Hysteria2 fixture');
+  assert(surgeText.includes('obfs-password=obfs-pass'), 'surge lost Hysteria2 obfs password');
+  assert(surgeText.includes('TUIC-BBR=tuic'), 'surge missing TUIC fixture');
+  assert(surgeText.includes('congestion-controller=bbr'), 'surge lost TUIC congestion controller');
+  assert(surgeText.includes('[WireGuard wg-WG-PEER]'), 'surge missing WireGuard section');
+  assert(surgeText.includes('peer = (public-key = wg-public'), 'surge lost WireGuard peer');
+  assert(surgeText.includes('SSR-Fix=ssr'), 'surge missing SSR fixture');
+
+  const qxText = mustGetGenerator('quantumultx').generate(nodes);
+  assert(qxText.includes('tag=VL-REALITY-XHTTP'), 'quantumultx missing VLESS fixture');
+  assert(qxText.includes('obfs-uri=/edge'), 'quantumultx lost xHTTP path mapping');
+  assert(qxText.includes('tag=HY2-OBFS'), 'quantumultx missing Hysteria2 fixture');
+  assert(qxText.includes('obfs-password=obfs-pass'), 'quantumultx lost Hysteria2 obfs password');
+  assert(qxText.includes('tag=TUIC-BBR'), 'quantumultx missing TUIC fixture');
+  assert(qxText.includes('congestion-control=bbr'), 'quantumultx lost TUIC congestion control');
+  assert(qxText.includes('tag=WG-PEER'), 'quantumultx missing WireGuard fixture');
+  assert(qxText.includes('tag=SSR-Fix'), 'quantumultx missing SSR fixture');
+
+  const loonText = mustGetGenerator('loon').generate(nodes);
+  assert(loonText.includes('VL-REALITY-XHTTP = Vless'), 'loon missing VLESS fixture');
+  assert(loonText.includes('transport=ws,path=/edge'), 'loon should map xHTTP to WS-compatible transport');
+  assert(loonText.includes('HY2-OBFS = Hysteria2'), 'loon missing Hysteria2 fixture');
+  assert(loonText.includes('TUIC-BBR = TUIC'), 'loon missing TUIC fixture');
+  assert(loonText.includes('WG-PEER = WireGuard'), 'loon missing WireGuard fixture');
+  assert(loonText.includes('SSR-Fix = ShadowsocksR'), 'loon missing SSR fixture');
+});
+
+add('golden fixture keeps URI-style outputs round-trippable', async () => {
+  const { nodes } = await parseInput(goldenFixtureInput);
+
+  for (const fmt of ['base64', 'shadowrocket'] as const) {
+    const encoded = mustGetGenerator(fmt).generate(nodes);
+    const text = Buffer.from(encoded, 'base64').toString('utf-8');
+    assert(text.includes('vless://11111111-1111-1111-1111-111111111111@reality.example.com:443?'), `${fmt} missing VLESS URI`);
+    assert(text.includes('security=reality'), `${fmt} lost Reality security`);
+    assert(text.includes('type=xhttp'), `${fmt} lost xHTTP type`);
+    assert(text.includes('pbk=realityPub'), `${fmt} lost Reality public key`);
+    assert(text.includes('sid=abcd'), `${fmt} lost Reality short id`);
+    assert(text.includes('trojan://trojan-pass@trojan.example.com:443?'), `${fmt} missing Trojan URI`);
+    assert(text.includes('type=httpupgrade'), `${fmt} lost HTTPUpgrade type`);
+    assert(text.includes('hysteria2://hy2-pass@hy2.example.com:443?'), `${fmt} missing Hysteria2 URI`);
+    assert(text.includes('obfs-password=obfs-pass'), `${fmt} lost Hysteria2 obfs password`);
+    assert(text.includes('tuic://22222222-2222-2222-2222-222222222222:tuic-pass@tuic.example.com:443?'), `${fmt} missing TUIC URI`);
+    assert(text.includes('congestion_control=bbr'), `${fmt} lost TUIC congestion control`);
+    assert(text.includes('wireguard://wg-private@wg.example.com:51820?'), `${fmt} missing WireGuard URI`);
+    assert(text.includes('publickey=wg-public'), `${fmt} lost WireGuard public key`);
+    assert(text.includes('ssr://'), `${fmt} missing SSR URI`);
+  }
+
+  const plain = mustGetGenerator('v2ray-uri').generate(nodes);
+  assert(plain.includes('VL-REALITY-XHTTP'), 'v2ray-uri missing VLESS fixture');
+  assert(plain.includes('ssr://'), 'v2ray-uri missing SSR fixture');
+  const roundTrip = await parseInput(plain);
+  assert(roundTrip.nodes.some((n) => n.name === 'SSR-Fix' && n.type === 'ssr'), 'v2ray-uri SSR fixture should round-trip');
 });
 
 add('resolve domain operator', async () => {

@@ -24,7 +24,7 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
     case 'vmess': {
       const p: Record<string, unknown> = {
         ...base, type: 'vmess', uuid: node.uuid, alterId: node.alterId ?? 0,
-        cipher: node.method || 'auto', network: node.transport,
+        cipher: node.method || 'auto', network: getClashNetwork(node),
       };
       if (node.tls !== 'none') p.tls = true;
       if (node.sni) p.servername = node.sni;
@@ -38,6 +38,7 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
         if (node.wsHeaders) wsOpts.headers = node.wsHeaders;
         if (Object.keys(wsOpts).length) p['ws-opts'] = wsOpts;
       }
+      applyHttpUpgradeOptions(p, node);
       if (node.transport === 'grpc' && node.grpcServiceName) {
         p['grpc-opts'] = { 'grpc-service-name': node.grpcServiceName };
       }
@@ -58,7 +59,7 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
     }
     case 'vless': {
       const p: Record<string, unknown> = {
-        ...base, type: 'vless', uuid: node.uuid, network: node.transport,
+        ...base, type: 'vless', uuid: node.uuid, network: getClashNetwork(node),
       };
       if (node.flow) p.flow = node.flow;
       if (node.tls !== 'none') p.tls = true;
@@ -79,6 +80,7 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
         if (node.wsHeaders) wsOpts.headers = node.wsHeaders;
         if (Object.keys(wsOpts).length) p['ws-opts'] = wsOpts;
       }
+      applyHttpUpgradeOptions(p, node);
       if (node.transport === 'grpc' && node.grpcServiceName) {
         p['grpc-opts'] = { 'grpc-service-name': node.grpcServiceName };
       }
@@ -99,7 +101,7 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
     }
     case 'trojan': {
       const p: Record<string, unknown> = {
-        ...base, type: 'trojan', password: node.password, network: node.transport,
+        ...base, type: 'trojan', password: node.password, network: getClashNetwork(node),
       };
       if (node.sni) p.sni = node.sni;
       if (node.skipCertVerify) p['skip-cert-verify'] = true;
@@ -111,6 +113,7 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
         if (node.wsHeaders) wsOpts.headers = node.wsHeaders;
         if (Object.keys(wsOpts).length) p['ws-opts'] = wsOpts;
       }
+      applyHttpUpgradeOptions(p, node);
       if (node.transport === 'grpc' && node.grpcServiceName) {
         p['grpc-opts'] = { 'grpc-service-name': node.grpcServiceName };
       }
@@ -208,6 +211,22 @@ function buildProxy(node: ProxyNode): Record<string, unknown> {
     default:
       return base;
   }
+}
+
+function getClashNetwork(node: ProxyNode): string {
+  return node.transport === 'httpupgrade' ? 'ws' : node.transport;
+}
+
+function applyHttpUpgradeOptions(proxy: Record<string, unknown>, node: ProxyNode) {
+  if (node.transport !== 'httpupgrade') return;
+
+  const wsOpts: Record<string, unknown> = {
+    'v2ray-http-upgrade': true,
+  };
+  if (node.wsPath) wsOpts.path = node.wsPath;
+  if (node.wsHeaders) wsOpts.headers = node.wsHeaders;
+
+  proxy['ws-opts'] = wsOpts;
 }
 
 function getDefaultRules(ruleTemplate?: string): string[] {
